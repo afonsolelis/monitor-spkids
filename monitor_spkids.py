@@ -12,7 +12,8 @@ que a colecao e detectada tanto pelos termos de busca quanto por ser um
 produto ou categoria que simplesmente nao existia ontem.
 
 Saida: relatorio no stdout e, com --webhook, uma notificacao no celular.
-Codigo de saida 10 quando ha novidade, 0 quando nao ha, 1 em caso de erro.
+Codigo de saida 10 quando ha novidade (e o aviso foi entregue), 0 quando nao
+ha, 1 em caso de erro — inclusive quando nenhum canal conseguiu avisar.
 """
 
 from __future__ import annotations
@@ -178,20 +179,24 @@ def baixar_catalogo(
     return produtos, categorias
 
 
-def baixar_sitemap(sessao: requests.Session, timeout: float = 30.0) -> list[str]:
+def baixar_sitemap(sessao: requests.Session, timeout: float = 30.0) -> list[str] | None:
     """Slugs de produto no sitemap — o aviso antecipado.
 
     A loja cria a pagina do produto antes de libera-la no catalogo: hoje o
     sitemap lista 168 produtos contra 111 visiveis na Store API. Um produto de
     30 anos aparece aqui assim que a pagina existe, mesmo que ainda nao de para
     ve-lo navegando pelo site.
+
+    Devolve None se o sitemap falhar — diferente de lista vazia, para a
+    execucao nao gravar "sitemap vazio" e a seguinte apontar as 168 paginas
+    como novas.
     """
     try:
         resposta = sessao.get(SITEMAP, timeout=timeout, headers={"Accept": "application/xml"})
         resposta.raise_for_status()
     except requests.RequestException as erro:
         log.warning("sitemap indisponivel (%s); seguindo so com a API", erro)
-        return []
+        return None
     return [
         url.rstrip("/").rsplit("/", 1)[-1]
         for url in re.findall(r"<loc>([^<]+)</loc>", resposta.text)
@@ -223,7 +228,11 @@ def carregar_estado(caminho: Path) -> dict[str, Any]:
 
 
 def salvar_estado(
-    caminho: Path, produtos: list[Produto], categorias: list[str], sitemap: list[str]
+    caminho: Path,
+    produtos: list[Produto],
+    categorias: list[str],
+    sitemap: list[str],
+    alertados: set[str],
 ) -> None:
     caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(
@@ -233,6 +242,7 @@ def salvar_estado(
                 "produtos": {str(p.id): p.nome for p in produtos},
                 "categorias": categorias,
                 "sitemap": sorted(sitemap),
+                "alertados": sorted(alertados),
             },
             ensure_ascii=False,
             indent=2,
@@ -245,19 +255,21 @@ def novidades(
     estado: dict[str, Any],
     produtos: list[Produto],
     categorias: list[str],
-    sitemap: list[str],
+    sitemap: list[str] | None,
 ) -> tuple[list[Produto], list[str], list[str]]:
     """O que nao existia na execucao anterior."""
     if not estado:
         return [], [], []  # primeira execucao: tudo e "novo", nao vale alarmar
     conhecidos = set(estado.get("produtos", {}))
     vistas = set(estado.get("categorias", []))
-    # Estado gravado antes do sitemap existir: nao tratar os 168 como novos.
-    antes = set(estado.get("sitemap", sitemap))
+    # Sem sitemap agora, ou sem sitemap no estado (gravado antes de ele existir,
+    # ou numa execucao em que ele falhou): nao ha base para comparar.
+    antes = set(estado.get("sitemap") or [])
+    slugs = [s for s in sitemap if s not in antes] if sitemap and antes else []
     return (
         [p for p in produtos if str(p.id) not in conhecidos],
         [c for c in categorias if c not in vistas],
-        [s for s in sitemap if s not in antes],
+        slugs,
     )
 
 
@@ -273,48 +285,90 @@ class Achados:
     categorias_novas: list[str] = field(default_factory=list)
     slugs_novos: list[str] = field(default_factory=list)
     total: int = 0
+    # Chaves ja avisadas em execucoes anteriores: sem isso, depois do lancamento
+    # o monitor mandaria o mesmo "LANCOU" de hora em hora.
+    ja_avisados: set[str] = field(default_factory=set)
+
+    def chaves_lancamento(self) -> set[str]:
+        return (
+            {chave_produto(p) for p in self.por_termo}
+            | {f"c:{c}" for c in self.categorias_termo}
+            | {f"s:{s}" for s in self.ocultos_suspeitos}
+        )
 
     @property
     def e_lancamento(self) -> bool:
         return bool(self.por_termo or self.categorias_termo or self.ocultos_suspeitos)
 
     @property
+    def lancamento_novo(self) -> bool:
+        return bool(self.chaves_lancamento() - self.ja_avisados)
+
+    @property
     def houve_novidade(self) -> bool:
-        return self.e_lancamento or bool(
+        return self.lancamento_novo or bool(
             self.produtos_novos or self.categorias_novas or self.slugs_novos
         )
+
+
+def chave_produto(p: Produto) -> str:
+    """Inclui o estoque: sair da pre-venda e entrar em estoque avisa de novo."""
+    return f"p:{p.id}:{'estoque' if p.em_estoque else 'fora'}"
 
 
 def montar_relatorio(a: Achados) -> tuple[str, str]:
     """Devolve (titulo, corpo) — o titulo serve de assunto do e-mail."""
     linhas: list[str] = []
 
+    def marca(chave: str) -> str:
+        return "[novo] " if chave not in a.ja_avisados else ""
+
     if a.e_lancamento:
-        titulo = "Pokemon 30 anos: LANCOU na SP Kids!"
         if a.categorias_termo:
-            linhas.append("Categorias novas com o termo: " + ", ".join(a.categorias_termo))
+            linhas.append(
+                "Categorias com o termo: "
+                + ", ".join(marca(f"c:{c}") + c for c in a.categorias_termo)
+            )
         for p in a.por_termo:
             estoque = "em estoque" if p.em_estoque else "indisponivel/pre-venda"
-            linhas.append(f"- {p.nome}\n  {p.preco_formatado} ({estoque})\n  {p.url}")
+            linhas.append(
+                f"- {marca(chave_produto(p))}{p.nome}\n"
+                f"  {p.preco_formatado} ({estoque})\n  {p.url}"
+            )
         if a.ocultos_suspeitos:
             linhas.append(
                 "\nPaginas ja criadas, ainda invisiveis no catalogo "
                 "(achadas no sitemap — o site pode estar montando a colecao agora):"
             )
             for slug in a.ocultos_suspeitos:
-                linhas.append(f"- {slug}\n  {SITE}/produto/{slug}/")
-    elif a.produtos_novos or a.categorias_novas or a.slugs_novos:
-        titulo = "SP Kids: produtos novos (sem sinal de 30 anos)"
-        if a.categorias_novas:
-            linhas.append("Categorias novas: " + ", ".join(a.categorias_novas))
-        for p in a.produtos_novos:
+                linhas.append(f"- {marca(f's:{slug}')}{slug}\n  {SITE}/produto/{slug}/")
+
+    # Novidades genericas que ja nao apareceram acima.
+    ids_termo = {p.id for p in a.por_termo}
+    prods = [p for p in a.produtos_novos if p.id not in ids_termo]
+    cats = [c for c in a.categorias_novas if c not in a.categorias_termo]
+    slugs_prods = {p.url.rstrip("/").rsplit("/", 1)[-1] for p in a.produtos_novos}
+    somente_sitemap = [
+        s for s in a.slugs_novos if s not in slugs_prods and s not in a.ocultos_suspeitos
+    ]
+    genericas = bool(prods or cats or somente_sitemap)
+    if genericas:
+        if linhas:
+            linhas.append("\nOutras novidades no catalogo:")
+        if cats:
+            linhas.append("Categorias novas: " + ", ".join(cats))
+        for p in prods:
             linhas.append(f"- {p.nome}\n  {p.preco_formatado}\n  {p.url}")
-        somente_sitemap = [s for s in a.slugs_novos if s not in {
-            p.url.rstrip("/").rsplit("/", 1)[-1] for p in a.produtos_novos
-        }]
         if somente_sitemap:
             linhas.append("\nPaginas novas no sitemap, ainda fora do catalogo:")
             linhas.extend(f"- {SITE}/produto/{s}/" for s in somente_sitemap)
+
+    if a.lancamento_novo:
+        titulo = "Pokemon 30 anos: LANCOU na SP Kids!"
+    elif genericas:
+        titulo = "SP Kids: produtos novos (sem sinal de 30 anos)"
+    elif a.e_lancamento:
+        titulo = "Pokemon 30 anos: nada mudou desde o ultimo aviso"
     else:
         titulo = "SP Kids: colecao de 30 anos ainda nao lancou"
         linhas.append(f"Nenhuma novidade. {a.total} produtos no catalogo.")
@@ -322,7 +376,7 @@ def montar_relatorio(a: Achados) -> tuple[str, str]:
     return titulo, "\n".join(linhas)
 
 
-def notificar(sessao: requests.Session, webhook: str, titulo: str, corpo: str) -> None:
+def notificar(sessao: requests.Session, webhook: str, titulo: str, corpo: str) -> bool:
     """POST de texto puro — funciona direto com ntfy.sh, entre outros."""
     try:
         resposta = sessao.post(
@@ -333,8 +387,10 @@ def notificar(sessao: requests.Session, webhook: str, titulo: str, corpo: str) -
         )
         resposta.raise_for_status()
         log.info("notificacao enviada para %s", webhook)
+        return True
     except requests.RequestException as erro:
         log.error("falha ao notificar: %s", erro)
+        return False
 
 
 def _corpo_html(titulo: str, corpo: str) -> str:
@@ -561,10 +617,14 @@ def main(argv: list[str] | None = None) -> int:
 
         sitemap = baixar_sitemap(sessao)
         visiveis = {p.url.rstrip("/").rsplit("/", 1)[-1] for p in produtos}
-        ocultos = [s for s in sitemap if s not in visiveis]
-        log.info("sitemap: %d paginas, %d ainda fora do catalogo", len(sitemap), len(ocultos))
+        ocultos = [s for s in sitemap or [] if s not in visiveis]
+        if sitemap is not None:
+            log.info(
+                "sitemap: %d paginas, %d ainda fora do catalogo", len(sitemap), len(ocultos)
+            )
 
         estado = carregar_estado(args.estado)
+        ja_avisados = set(estado.get("alertados", []))
         prods_novos, cats_novas, slugs_novos = novidades(
             estado, produtos, categorias, sitemap
         )
@@ -577,6 +637,7 @@ def main(argv: list[str] | None = None) -> int:
             categorias_novas=cats_novas,
             slugs_novos=slugs_novos,
             total=len(produtos),
+            ja_avisados=ja_avisados,
         )
 
         titulo, corpo = montar_relatorio(achados)
@@ -585,16 +646,35 @@ def main(argv: list[str] | None = None) -> int:
         print(corpo)
 
         houve_novidade = achados.houve_novidade
+        entregues: list[bool] = []
         if houve_novidade or args.sempre_notificar:
             if args.webhook:
-                notificar(sessao, args.webhook, titulo, corpo)
+                entregues.append(notificar(sessao, args.webhook, titulo, corpo))
             if args.email:
-                enviar_email([d.strip() for d in args.email], titulo, corpo)
+                entregues.append(enviar_email([d.strip() for d in args.email], titulo, corpo))
+        # Sem canal configurado o relatorio no stdout basta; com canal, basta um
+        # ter entregado.
+        falhou = bool(entregues) and not any(entregues)
+
+    if falhou and houve_novidade:
+        # Sem gravar o estado, a proxima execucao ve as mesmas novidades e tenta
+        # avisar de novo, em vez de elas sumirem caladas.
+        log.error("nenhum canal entregou o aviso; estado mantido para tentar de novo")
+        return 1
 
     if not args.sem_estado:
-        salvar_estado(args.estado, produtos, categorias, sitemap)
+        salvar_estado(
+            args.estado,
+            produtos,
+            categorias,
+            sitemap if sitemap is not None else estado.get("sitemap", []),
+            ja_avisados | achados.chaves_lancamento(),
+        )
         log.info("estado gravado em %s", args.estado)
 
+    if falhou:
+        log.error("nenhum canal entregou o aviso")
+        return 1
     return 10 if houve_novidade else 0
 
 

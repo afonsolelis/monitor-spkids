@@ -22,13 +22,15 @@ fi
 echo "===== $(date '+%d/%m/%Y %H:%M:%S %Z') ====="
 
 # -n: se a execucao anterior ainda roda, esta sai em vez de empilhar.
-flock -n "$TRAVA" "$PY" "$REPO/monitor_spkids.py" "$@"
+# -E 75: sai com 75 nesse caso, para nao se confundir com o 1 de erro do script.
+flock -n -E 75 "$TRAVA" "$PY" "$REPO/monitor_spkids.py" "$@"
 codigo=$?
 
 case $codigo in
   0)  echo "-> sem novidade" ;;
   10) echo "-> NOVIDADE encontrada (alerta enviado)" ;;
-  1)  echo "-> ERRO na verificacao" ;;
-  *)  echo "-> saiu com codigo $codigo (1 = outra execucao em andamento)" ;;
+  1)  echo "-> ERRO na verificacao ou no envio do aviso" ;;
+  75) echo "-> outra execucao ainda em andamento; pulando esta" ;;
+  *)  echo "-> saiu com codigo $codigo" ;;
 esac
 exit $codigo

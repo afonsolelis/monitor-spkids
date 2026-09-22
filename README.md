@@ -115,7 +115,16 @@ Por padrão só notifica quando há novidade. `--sempre-notificar` manda sempre.
 |---|---|
 | `0` | sem novidade |
 | `10` | novidade encontrada (alerta enviado) |
-| `1` | erro na verificação |
+| `1` | erro na verificação, ou nenhum canal conseguiu entregar o alerta |
+| `75` | outra execução ainda rodando (só pelo `rodar_monitor.sh`) |
+
+Se o alerta de uma novidade não for entregue, o estado **não** é gravado: a
+execução seguinte vê a mesma novidade e tenta de novo.
+
+Depois que a coleção lançar, o aviso "LANÇOU" não se repete a cada hora: o
+estado lembra o que já foi avisado e só volta a avisar quando aparece produto
+novo da coleção ou quando um deles entra em estoque (itens novos vêm marcados
+com `[novo]`).
 
 ### Segurança do e-mail
 
