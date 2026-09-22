@@ -61,7 +61,8 @@ if crontab -l 2>/dev/null | grep -Fq "$REPO/rodar_monitor.sh"; then
   echo "==> cron ja instalado, nada a fazer"
 else
   echo "==> instalando cron (de hora em hora)"
-  ( crontab -l 2>/dev/null
+  # "|| true": sem crontab ainda, o -l sai com erro e o set -e abortaria aqui.
+  ( crontab -l 2>/dev/null || true
     echo "# Monitor SP Kids: colecao de 30 anos de Pokemon."
     echo "$LINHA"
   ) | crontab -
