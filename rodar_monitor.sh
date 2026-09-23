@@ -5,6 +5,7 @@
 #   rodar_monitor.sh [opcoes]           roda os dois monitores (SP Kids e Copag)
 #   rodar_monitor.sh spkids [opcoes]    so a SP Kids
 #   rodar_monitor.sh copag [opcoes]     so a Copag B2B
+#   rodar_monitor.sh precos [opcoes]    coleta o preco das cartas (cron de hora em hora)
 #
 # Sem nome de loja, as opcoes vao para os dois — use so as comuns
 # (--sempre-notificar, --sem-estado, --termo, --webhook, --email, -v).
@@ -26,7 +27,7 @@ else
 fi
 
 case "${1:-}" in
-  spkids|copag) lojas=("$1"); shift ;;
+  spkids|copag|precos) lojas=("$1"); shift ;;
   *)            lojas=(spkids copag) ;;
 esac
 
@@ -39,11 +40,13 @@ for loja in "${lojas[@]}"; do
   # A trava da SP Kids mantem o nome antigo para nao conflitar na atualizacao.
   trava="$HOME/.cache/spkids-monitor.lock"
   [ "$loja" = spkids ] || trava="$HOME/.cache/$loja-monitor.lock"
-  flock -n "$trava" "$PY" "$REPO/monitor_$loja.py" "$@"
+  script="$REPO/monitor_$loja.py"
+  [ "$loja" = precos ] && script="$REPO/precos_cartas.py"
+  flock -n "$trava" "$PY" "$script" "$@"
   codigo=$?
 
   case $codigo in
-    0)  echo "-> sem novidade" ;;
+    0)  [ "$loja" = precos ] && echo "-> precos gravados" || echo "-> sem novidade" ;;
     10) echo "-> NOVIDADE encontrada (alerta enviado)" ;;
     1)  echo "-> ERRO na verificacao" ;;
     *)  echo "-> saiu com codigo $codigo (1 = outra execucao em andamento)" ;;

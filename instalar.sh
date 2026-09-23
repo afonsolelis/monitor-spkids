@@ -56,22 +56,60 @@ echo "==> teste"
 "$REPO/rodar_monitor.sh" || true
 
 # -------------------------------------------------------------------- cron
-LINHA="*/15 * * * * $REPO/rodar_monitor.sh >> $LOG_DIR/monitor.log 2>&1"
-if crontab -l 2>/dev/null | grep -Fxq "$LINHA"; then
-  echo "==> cron ja instalado, nada a fazer"
-elif crontab -l 2>/dev/null | grep -Fq "$REPO/rodar_monitor.sh"; then
-  # Instalacao antiga (de hora em hora): troca so a linha do monitor.
-  echo "==> atualizando cron para a cada 15 minutos"
-  crontab -l | awk -v repo="$REPO/rodar_monitor.sh" -v linha="$LINHA" \
-    'index($0, repo) && $0 !~ /^#/ { print linha; next } { print }' | crontab -
+# Duas linhas: os monitores de loja a cada 15 minutos e a coleta de precos das
+# cartas de hora em hora. Cada uma e reconhecida pelo comando, entao rodar de
+# novo nao duplica e uma instalacao antiga (monitor de hora em hora) e atualizada.
+instalar_cron() {  # $1 = linha desejada, $2 = trecho que identifica a linha, $3 = comentario
+  local atual
+  atual="$(crontab -l 2>/dev/null || true)"
+  if printf '%s\n' "$atual" | grep -Fxq "$1"; then
+    echo "    ja instalado: $3"
+  elif printf '%s\n' "$atual" | grep -v '^#' | grep -Fq "$2"; then
+    echo "    atualizando: $3"
+    # ENVIRON em vez de -v: o awk interpreta barras invertidas passadas por -v.
+    printf '%s\n' "$atual" | TRECHO="$2" LINHA="$1" awk \
+      '$0 !~ /^#/ && index($0, ENVIRON["TRECHO"]) { print ENVIRON["LINHA"]; next } { print }' | crontab -
+  else
+    echo "    instalando: $3"
+    printf '%s\n%s\n%s\n' "$atual" "# $3" "$1" | sed '/./,$!d' | crontab -
+  fi
+}
+
+echo "==> cron"
+MONITOR="$REPO/rodar_monitor.sh"
+instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
+  "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
+instalar_cron "0 * * * * $MONITOR precos >> $LOG_DIR/precos.log 2>&1" \
+  "$MONITOR precos" "Preco das cartas Pokemon 30 anos (de hora em hora)."
+
+# ------------------------------------------------------ servidor do painel
+# Serve o painel em http://127.0.0.1:8787 com o botao "Atualizar precos agora".
+# Servico de usuario do systemd: sobe junto com a sessao, sem sudo.
+if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+  echo "==> servidor do painel"
+  PY_SERV="$REPO/.venv/bin/python"
+  [ -x "$PY_SERV" ] || PY_SERV="$(command -v python3)"
+  mkdir -p "$HOME/.config/systemd/user"
+  cat > "$HOME/.config/systemd/user/painel-precos.service" <<UNIT
+[Unit]
+Description=Painel de precos das cartas Pokemon 30 anos (http://127.0.0.1:8787)
+
+[Service]
+ExecStart=$PY_SERV $REPO/servidor_painel.py
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+UNIT
+  systemctl --user daemon-reload
+  systemctl --user enable --now painel-precos.service >/dev/null 2>&1 &&
+    systemctl --user restart painel-precos.service &&
+    echo "    rodando em http://127.0.0.1:8787"
 else
-  echo "==> instalando cron (a cada 15 minutos)"
-  ( crontab -l 2>/dev/null
-    echo "# Monitor SP Kids + Copag: colecao de 30 anos de Pokemon."
-    echo "$LINHA"
-  ) | crontab -
+  echo "==> sem systemd de usuario; suba o painel na mao: python3 $REPO/servidor_painel.py"
 fi
 
 echo
 echo "pronto. falta so editar $ENV_DIR/env com a Senha de App do Gmail."
-echo "log: $LOG_DIR/monitor.log"
+echo "log: $LOG_DIR/monitor.log  |  precos: $LOG_DIR/precos.log"
+echo "painel de precos: http://127.0.0.1:8787"

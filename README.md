@@ -8,6 +8,10 @@ Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas loja
 
 Roda a cada 15 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
 
+De hora em hora ele também grava o preço de todas as cartas das duas edições
+(188 cartas) num CSV e gera um painel HTML com a evolução, a tendência de cada
+carta e uma caixa para marcar as que você já tem. Veja [Preço das cartas](#preço-das-cartas).
+
 ---
 
 ## Como rodar
@@ -58,6 +62,7 @@ tail -f ~/.local/state/spkids/monitor.log   # ver as execuções
 ./rodar_monitor.sh                          # rodar na mão agora (as duas lojas)
 ./rodar_monitor.sh copag                    # só a Copag
 ./rodar_monitor.sh spkids                   # só a SP Kids
+./rodar_monitor.sh precos                   # coletar o preço das cartas agora
 ```
 
 A partir daí é só esperar: o e-mail chega sozinho quando algo mudar.
@@ -129,6 +134,75 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 
 ---
 
+## Preço das cartas
+
+`precos_cartas.py` roda de hora em hora (cron próprio) e cobre as duas edições:
+
+| Edição | Sigla na Liga | Cartas |
+|---|---|---|
+| Celebração de 30 Anos | `30C` | 158 |
+| Cartas Clássicas (Classic Collection) | `30C-C` | 30 |
+
+**Fonte: LigaPokemon, não MYP Cards.** A MYP Cards bloqueia qualquer acesso
+automatizado com o desafio anti-robô do Cloudflare. Contornar esse bloqueio
+seria burlar a proteção do site, então o monitor usa a LigaPokemon. Ela tem as
+mesmas duas edições, com preços em reais, e a página de cada edição já traz um
+JSON com o preço mínimo, médio e máximo de cada carta.
+
+### Arquivos
+
+| Caminho | Conteúdo |
+|---|---|
+| `dados/precos-cartas.csv` | **versionado: é o banco do histórico.** Uma linha por carta por coleta: `coletado_em, colecao, numero, nome_en, nome_pt, preco_min, preco_medio, preco_max` |
+| `dados/precos-cartas.html` | o painel, regerado a cada coleta |
+| `painel_precos.html` | modelo do painel (versionado). O script injeta os dados nele |
+
+O CSV só recebe linhas no fim, e o `.gitattributes` marca ele com
+`merge=union`. Se duas máquinas coletarem e fizerem commit, o `git pull` junta
+as linhas das duas em vez de dar conflito. O painel ordena por data ao ler.
+
+### O painel
+
+Abra em **http://127.0.0.1:8787**. O `instalar.sh` cria um serviço de usuário
+do systemd (`painel-precos.service`, sem sudo) que sobe o `servidor_painel.py`
+junto com a sessão. Por esse endereço, o botão **Atualizar preços agora** roda
+a coleta na hora e recarrega a página. Ele usa o mesmo `rodar_monitor.sh precos`
+do cron, com a mesma trava, então o botão e o cron nunca coletam juntos.
+
+Aberto direto do disco (`file://`), o painel funciona, mas o botão não: o
+navegador não deixa uma página rodar programas na máquina. O servidor só escuta
+em `127.0.0.1` e recusa pedidos de outros sites.
+
+```bash
+systemctl --user status painel-precos     # ver se está no ar
+systemctl --user restart painel-precos    # depois de atualizar o código
+```
+
+- Resumo no topo: quantas cartas você tem, quanto valem e quanto falta para completar.
+- Tabela com preço médio, mínimo, uma mini-linha da evolução e a tendência em
+  %/dia e R$/dia. Pode ordenar por qualquer coluna e filtrar por edição, por
+  "só as que faltam"/"só as que tenho" e por nome.
+- Clique numa carta para ver o gráfico completo: preço médio, preço mínimo e a reta
+  da regressão, com a projeção para 7 dias e o R².
+- **Tendência**: regressão linear simples do preço médio na janela escolhida
+  (24 horas, 7 dias ou todo o período). Só aparece com pelo menos 3 coletas
+  cobrindo 2 horas. R² baixo significa que o preço oscila mais do que segue
+  uma direção.
+- **Tenho**: a marcação fica salva no navegador (`localStorage`) e sobrevive
+  às atualizações do painel. Ela fica presa ao endereço e ao navegador: o que
+  foi marcado em `file://` não aparece em `127.0.0.1:8787`, nem em outro
+  computador. Use **Exportar marcações** e **Importar** para levar.
+
+O HTML embute o histórico: hora a hora nos últimos 14 dias, e um ponto por dia
+antes disso, para o arquivo não crescer sem limite.
+
+```bash
+.venv/bin/python precos_cartas.py              # coletar agora e regerar o painel
+.venv/bin/python precos_cartas.py --so-html    # só regerar o painel a partir do CSV
+```
+
+---
+
 ## Opções
 
 ```bash
@@ -175,6 +249,8 @@ da máquina.
 | `~/.local/state/spkids/monitor.log` | log de cada execução |
 | `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
 | `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
+| `dados/precos-cartas.html` | painel gerado a partir do CSV |
+| `~/.local/state/spkids/precos.log` | log da coleta de preços |
 
 ## Limitação conhecida
 

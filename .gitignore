@@ -1,7 +1,10 @@
 .venv/
 __pycache__/
 *.py[cod]
-dados/
+# dados/ guarda estado e o painel gerado; o CSV de precos e o historico
+# (o "banco") e vai para o repositorio.
+dados/*
+!dados/precos-cartas.csv
 *.log
 env
 .env
