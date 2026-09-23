@@ -56,13 +56,18 @@ echo "==> teste"
 "$REPO/rodar_monitor.sh" || true
 
 # -------------------------------------------------------------------- cron
-LINHA="0 * * * * $REPO/rodar_monitor.sh >> $LOG_DIR/monitor.log 2>&1"
-if crontab -l 2>/dev/null | grep -Fq "$REPO/rodar_monitor.sh"; then
+LINHA="*/15 * * * * $REPO/rodar_monitor.sh >> $LOG_DIR/monitor.log 2>&1"
+if crontab -l 2>/dev/null | grep -Fxq "$LINHA"; then
   echo "==> cron ja instalado, nada a fazer"
+elif crontab -l 2>/dev/null | grep -Fq "$REPO/rodar_monitor.sh"; then
+  # Instalacao antiga (de hora em hora): troca so a linha do monitor.
+  echo "==> atualizando cron para a cada 15 minutos"
+  crontab -l | awk -v repo="$REPO/rodar_monitor.sh" -v linha="$LINHA" \
+    'index($0, repo) && $0 !~ /^#/ { print linha; next } { print }' | crontab -
 else
-  echo "==> instalando cron (de hora em hora)"
+  echo "==> instalando cron (a cada 15 minutos)"
   ( crontab -l 2>/dev/null
-    echo "# Monitor SP Kids: colecao de 30 anos de Pokemon."
+    echo "# Monitor SP Kids + Copag: colecao de 30 anos de Pokemon."
     echo "$LINHA"
   ) | crontab -
 fi

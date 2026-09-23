@@ -1,8 +1,12 @@
-# Monitor SP Kids — coleção Pokémon 30 anos
+# Monitor SP Kids + Copag — coleção Pokémon 30 anos
 
-Avisa por e-mail quando a **SP Kids Distribuidora** listar a coleção de
-30 anos de Pokémon. Roda de hora em hora pelo cron, sem precisar de login
-no site.
+Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas lojas:
+
+- **SP Kids Distribuidora**: quando a coleção for listada.
+- **Copag B2B** (`b2b.copagloja.com.br/pokemon`): a coleção já está cadastrada,
+  mas sem estoque. O aviso sai quando algum item **entra em estoque**.
+
+Roda a cada 15 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
 
 ---
 
@@ -18,7 +22,7 @@ cd monitor-spkids
 
 O `instalar.sh` prepara tudo: cria o ambiente Python (tenta `uv`, depois
 `venv`, e no pior caso usa o Python do sistema), cria as pastas, roda um teste
-e instala o cron de hora em hora. Rodar de novo é seguro — ele não duplica o
+e instala o cron a cada 15 minutos. Rodar de novo é seguro — ele não duplica o
 cron nem sobrescreve suas credenciais.
 
 ### 2. Colocar a Senha de App do Gmail
@@ -51,7 +55,9 @@ Se o e-mail chegar, está pronto. Se aparecer
 ```bash
 crontab -l                                  # confirmar o agendamento
 tail -f ~/.local/state/spkids/monitor.log   # ver as execuções
-./rodar_monitor.sh                          # rodar na mão agora
+./rodar_monitor.sh                          # rodar na mão agora (as duas lojas)
+./rodar_monitor.sh copag                    # só a Copag
+./rodar_monitor.sh spkids                   # só a SP Kids
 ```
 
 A partir daí é só esperar: o e-mail chega sozinho quando algo mudar.
@@ -86,6 +92,40 @@ Os padrões foram validados contra os 40 nomes reais da coleção como listados
 no mercado brasileiro, normalizados para o estilo do catálogo da SP Kids
 (maiúscula, sem acento): 40 de 40 detectados, sem casar com falsos positivos
 como `PASTA 3X3 C/ 30 FOLHAS`.
+
+---
+
+## Copag B2B
+
+A loja roda em VTEX. A API de catálogo clássica recusa as consultas (os canais
+de venda do B2B são restritos), mas o **Intelligent Search**
+(`/api/io/_v/api/intelligent-search`) é público e devolve nome, categoria,
+preço e estoque sem login. O catálogo inteiro tem cerca de 170 produtos, então
+cada execução baixa tudo em 4 requisições.
+
+Na primeira verificação (23/09/2026) os 8 itens da categoria
+`Pokémon › 30 Anos` já estavam no catálogo, **todos com estoque zero**. Por
+isso o monitor da Copag avisa sobre mudança de estoque, não sobre produto novo:
+
+| Evento | Alerta |
+|---|---|
+| item de 30 anos passa de 0 para disponível | **urgente**: `DISPONIVEL na Copag B2B!` |
+| item de 30 anos novo no catálogo | **urgente** |
+| item de 30 anos esgota | informativo |
+| outro produto Pokémon novo | informativo |
+| página Pokémon nova no sitemap, ainda fora da busca | informativo |
+
+Todo e-mail traz a situação atual dos itens da coleção (preço e estoque). O
+preço mostrado é o público da loja; o preço B2B de quem está logado pode ser
+diferente.
+
+O estado fica em `dados/copag-estado.json`. Usa as mesmas credenciais de
+e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
+
+```bash
+.venv/bin/python monitor_copag.py --help
+.venv/bin/python monitor_copag.py --sem-estado        # só ver a situação atual
+```
 
 ---
 
@@ -133,10 +173,11 @@ da máquina.
 |---|---|
 | `~/.config/spkids/env` | credenciais SMTP, permissão `600` |
 | `~/.local/state/spkids/monitor.log` | log de cada execução |
-| `dados/spkids-estado.json` | catálogo da execução anterior |
+| `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
+| `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
 
 ## Limitação conhecida
 
-O cron não recupera execução perdida: se a máquina estiver suspensa às 14h,
-não roda 14h — roda 15h. Para garantia em máquina que dorme, troque por um
+O cron não recupera execução perdida: se a máquina estiver suspensa às 14h00,
+não roda 14h00 — roda na próxima janela de 15 minutos em que estiver acordada. Para garantia em máquina que dorme, troque por um
 timer do systemd com `Persistent=true`.

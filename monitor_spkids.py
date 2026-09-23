@@ -337,7 +337,7 @@ def notificar(sessao: requests.Session, webhook: str, titulo: str, corpo: str) -
         log.error("falha ao notificar: %s", erro)
 
 
-def _corpo_html(titulo: str, corpo: str) -> str:
+def _corpo_html(titulo: str, corpo: str, assinatura: str, site: str) -> str:
     """Mesmo texto do e-mail, com os links dos produtos clicaveis."""
     escapado = html.escape(corpo)
     com_links = re.sub(r"(https?://[^\s<]+)", r'<a href="\1">\1</a>', escapado)
@@ -346,13 +346,19 @@ def _corpo_html(titulo: str, corpo: str) -> str:
         f"<h2 style=\"font:600 18px system-ui,sans-serif\">{html.escape(titulo)}</h2>"
         "<pre style=\"font:14px/1.6 system-ui,sans-serif;white-space:pre-wrap\">"
         f"{com_links}</pre>"
-        f'<p style="font:12px system-ui,sans-serif;color:#666">monitor_spkids &middot; '
-        f'<a href="{SITE}">{SITE}</a></p>'
+        f'<p style="font:12px system-ui,sans-serif;color:#666">{assinatura} &middot; '
+        f'<a href="{site}">{site}</a></p>'
         "</body></html>"
     )
 
 
-def enviar_email(destinos: list[str], titulo: str, corpo: str) -> bool:
+def enviar_email(
+    destinos: list[str],
+    titulo: str,
+    corpo: str,
+    assinatura: str = "monitor_spkids",
+    site: str = SITE,
+) -> bool:
     """Envia o relatorio por SMTP.
 
     Servidor e credenciais vem do ambiente (SPKIDS_SMTP_*), nunca do codigo nem
@@ -373,8 +379,8 @@ def enviar_email(destinos: list[str], titulo: str, corpo: str) -> bool:
     mensagem["Subject"] = titulo
     mensagem["From"] = remetente
     mensagem["To"] = ", ".join(destinos)
-    mensagem.set_content(f"{corpo}\n\n--\nmonitor_spkids | {SITE}")
-    mensagem.add_alternative(_corpo_html(titulo, corpo), subtype="html")
+    mensagem.set_content(f"{corpo}\n\n--\n{assinatura} | {site}")
+    mensagem.add_alternative(_corpo_html(titulo, corpo, assinatura, site), subtype="html")
 
     try:
         conexao = (
