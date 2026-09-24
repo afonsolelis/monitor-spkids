@@ -1,0 +1,3 @@
+# CSV so recebe linhas no fim: num merge entre duas maquinas, fica com as
+# linhas das duas em vez de conflitar.
+dados/precos-cartas.csv merge=union

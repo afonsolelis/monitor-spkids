@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartas Pokémon 30 anos</title>
+<!-- Modelo do painel. O precos_cartas.py troca o marcador de dados abaixo
+     pelo historico e grava o resultado em dados/precos-cartas.html. -->
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --hover: rgba(11,11,11,0.04);
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-1-wash: rgba(42,120,214,0.10);
+  --acento: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --hover: rgba(255,255,255,0.05);
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-1-wash: rgba(57,135,229,0.12);
+    --acento: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --hover: rgba(255,255,255,0.05);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-1-wash: rgba(57,135,229,0.12);
+  --acento: #3987e5;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
+.topo { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.sub { color: var(--ink-2); margin: 0; }
+.acao { display: flex; align-items: center; gap: 10px; }
+.acao .estado { color: var(--ink-2); font-size: 13px; }
+button.primario { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 550; }
+button.primario:hover { filter: brightness(1.08); background: var(--acento); }
+button:disabled { opacity: 0.6; cursor: progress; }
+.aviso {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 20px; color: var(--ink-2);
+}
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .rot { color: var(--ink-2); font-size: 13px; }
+.tile .val { font-size: 26px; font-weight: 600; margin-top: 2px; }
+.tile .det { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.barra { height: 6px; border-radius: 3px; background: var(--serie-1-wash); margin-top: 10px; overflow: hidden; }
+.barra > div { height: 100%; background: var(--serie-1); border-radius: 3px; }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.filtros label { color: var(--ink-2); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+select, input[type="search"], button {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+input[type="search"] { min-width: 180px; }
+button { cursor: pointer; }
+button:hover { background: var(--hover); }
+.espaco { flex: 1; }
+
+.tabela { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-weight: 500; color: var(--ink-2); font-size: 12px;
+  padding: 10px 12px; border-bottom: 1px solid var(--grid); white-space: nowrap;
+  user-select: none;
+}
+th[data-ordem] { cursor: pointer; }
+th[data-ordem]:hover { color: var(--ink); }
+th .seta { color: var(--muted); margin-left: 2px; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+tr.carta { cursor: pointer; }
+tr.carta:hover td { background: var(--hover); }
+tr.carta.tenho .nome-pt::after { content: " · tenho"; color: var(--muted); font-weight: 400; font-size: 12px; }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+.check { width: 44px; text-align: center; }
+.check input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--acento); }
+.cel-carta { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cel-carta img { width: 30px; height: 42px; object-fit: cover; border-radius: 3px; background: var(--grid); flex: none; }
+.nome-pt { font-weight: 550; }
+.nome-en { color: var(--muted); font-size: 12px; }
+.spark { display: block; }
+.tend { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tend .dia { color: var(--muted); font-size: 12px; display: block; }
+.tend .sem { color: var(--muted); }
+a { color: var(--acento); }
+
+tr.detalhe td { background: var(--page); padding: 16px; }
+.det-grade { display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: start; }
+.det-grade img { width: 150px; border-radius: 8px; }
+.legenda { display: flex; flex-wrap: wrap; gap: 16px; color: var(--ink-2); font-size: 12px; margin-bottom: 6px; }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.chave { width: 16px; height: 0; border-top: 2px solid; display: inline-block; }
+.chave.trac { border-top-style: dashed; }
+.grafico { position: relative; }
+.grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+.dica {
+  position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  white-space: nowrap; display: none;
+}
+.dica .quando { color: var(--muted); margin-bottom: 4px; }
+.dica .linha { display: flex; align-items: center; gap: 6px; }
+.dica .linha b { font-variant-numeric: tabular-nums; }
+.resumo { color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+.vazio { color: var(--muted); padding: 32px; text-align: center; }
+.rodape { color: var(--muted); font-size: 12px; margin-top: 16px; }
+
+@media (max-width: 720px) {
+  .col-min, .col-spark { display: none; }
+  .det-grade { grid-template-columns: 1fr; }
+  .det-grade img { width: 110px; }
+  td, th { padding: 8px 6px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="topo">
+    <div>
+      <h1>Cartas Pokémon 30 anos</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="acao">
+      <span class="estado" id="estado" role="status"></span>
+      <button type="button" class="primario" id="atualizar">Atualizar preços agora</button>
+    </div>
+  </div>
+  <div class="aviso" id="aviso" hidden></div>
+
+  <section class="tiles" id="tiles"></section>
+
+  <div class="filtros">
+    <label>Edição
+      <select id="f-edicao"><option value="">Todas</option></select>
+    </label>
+    <label>Mostrar
+      <select id="f-posse">
+        <option value="">Todas</option>
+        <option value="faltam">Só as que faltam</option>
+        <option value="tenho">Só as que tenho</option>
+      </select>
+    </label>
+    <label>Tendência em
+      <select id="f-janela">
+        <option value="1">24 horas</option>
+        <option value="7" selected>7 dias</option>
+        <option value="0">todo o período</option>
+      </select>
+    </label>
+    <input type="search" id="f-busca" placeholder="Buscar carta ou número" aria-label="Buscar carta">
+    <span class="espaco"></span>
+    <button type="button" id="exportar" title="Baixa um arquivo com as cartas marcadas">Exportar marcações</button>
+    <button type="button" id="importar-btn">Importar</button>
+    <input type="file" id="importar" accept="application/json" hidden>
+  </div>
+
+  <div class="tabela">
+    <table>
+      <thead>
+        <tr>
+          <th class="check" title="Marque as cartas que você já tem">Tenho</th>
+          <th data-ordem="num">Carta <span class="seta"></span></th>
+          <th class="num" data-ordem="medio">Preço médio <span class="seta"></span></th>
+          <th class="num col-min" data-ordem="min">Mínimo <span class="seta"></span></th>
+          <th class="col-spark">Evolução</th>
+          <th class="num" data-ordem="tend">Tendência <span class="seta"></span></th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+    </table>
+  </div>
+  <p class="rodape">
+    Preços da LigaPokemon (média, mínimo e máximo das ofertas de cada carta). A tendência é
+    uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
+    diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
+    navegador — use Exportar para guardar uma cópia.
+  </p>
+</main>
+
+<script id="dados" type="application/json">/*__DADOS__*/null</script>
+<script>
+"use strict";
+const DADOS = JSON.parse(document.getElementById("dados").textContent);
+const CHAVE_POSSE = "pokemon30:tenho";
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const pct = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" });
+const dataHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const soData = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const soHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const SVGNS = "http://www.w3.org/2000/svg";
+
+// ---------------------------------------------------------------- posse
+function lerPosse() {
+  try { return new Set(JSON.parse(localStorage.getItem(CHAVE_POSSE) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function salvarPosse() {
+  try { localStorage.setItem(CHAVE_POSSE, JSON.stringify([...posse])); }
+  catch (e) { /* armazenamento bloqueado: a marcacao vale so nesta aba */ }
+}
+let posse = lerPosse();
+
+// ------------------------------------------------------------ regressao
+function regressao(pontos) {
+  // pontos: [[x em dias, y]]; devolve inclinacao por dia, intercepto e R2.
+  const n = pontos.length;
+  if (n < 3) return null;
+  let sx = 0, sy = 0;
+  for (const [x, y] of pontos) { sx += x; sy += y; }
+  const mx = sx / n, my = sy / n;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (const [x, y] of pontos) {
+    sxx += (x - mx) ** 2; sxy += (x - mx) * (y - my); syy += (y - my) ** 2;
+  }
+  if (sxx === 0) return null;
+  const a = sxy / sxx, b = my - a * mx;
+  return { a, b, mx, my, r2: syy === 0 ? 1 : (sxy * sxy) / (sxx * syy), n };
+}
+
+function janelaSegundos() {
+  const dias = Number(document.getElementById("f-janela").value);
+  return dias ? dias * 86400 : Infinity;
+}
+
+function tendencia(carta) {
+  const serie = carta.s.filter(p => p[1] != null);
+  if (!serie.length) return null;
+  const fim = serie[serie.length - 1][0];
+  const inicio = fim - janelaSegundos();
+  const pts = serie.filter(p => p[0] >= inicio);
+  // Menos de 2 horas de historia nao diz nada sobre direcao.
+  if (pts.length < 3 || pts[pts.length - 1][0] - pts[0][0] < 7200) return null;
+  const t0 = pts[0][0];
+  const r = regressao(pts.map(p => [(p[0] - t0) / 86400, p[1]]));
+  if (!r) return null;
+  return { ...r, t0, porDia: r.a, pctDia: r.my ? (r.a / r.my) * 100 : 0, pts };
+}
+
+// ------------------------------------------------------------ preparo
+const cartas = DADOS ? DADOS.cartas.map(c => {
+  const validos = c.s.filter(p => p[1] != null);
+  const ultimo = validos[validos.length - 1];
+  const ultimoMin = [...c.s].reverse().find(p => p[2] != null);
+  return {
+    ...c,
+    medio: ultimo ? ultimo[1] : null,
+    min: ultimoMin ? ultimoMin[2] : null,
+    ordemNum: (c.col === "30C" ? "0" : "1") + c.num.padStart(6, "0"),
+  };
+}) : [];
+
+let ordem = { campo: "num", desc: false };
+let aberta = null;
+
+// ---------------------------------------------------------------- topo
+function montarTopo() {
+  const sub = document.getElementById("sub");
+  if (!DADOS) { sub.textContent = "Sem dados — rode precos_cartas.py"; return; }
+  const gerado = new Date(DADOS.gerado_em);
+  sub.textContent = `LigaPokemon · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
+  if (DADOS.coletas < 3) {
+    const aviso = document.getElementById("aviso");
+    aviso.hidden = false;
+    aviso.textContent = "Ainda juntando histórico: a tendência aparece depois de 3 coletas cobrindo pelo menos 2 horas.";
+  }
+  const sel = document.getElementById("f-edicao");
+  for (const [sigla, nome] of Object.entries(DADOS.edicoes)) {
+    const op = document.createElement("option");
+    op.value = sigla; op.textContent = `${nome} (${sigla})`;
+    sel.appendChild(op);
+  }
+}
+
+function tile(rotulo, valor, detalhe, fracao) {
+  const d = document.createElement("div");
+  d.className = "tile";
+  const r = document.createElement("div"); r.className = "rot"; r.textContent = rotulo;
+  const v = document.createElement("div"); v.className = "val"; v.textContent = valor;
+  d.append(r, v);
+  if (detalhe) { const e = document.createElement("div"); e.className = "det"; e.textContent = detalhe; d.appendChild(e); }
+  if (fracao != null) {
+    const b = document.createElement("div"); b.className = "barra";
+    const f = document.createElement("div"); f.style.width = `${Math.round(fracao * 100)}%`;
+    b.appendChild(f); d.appendChild(b);
+  }
+  return d;
+}
+
+function montarTiles() {
+  const alvo = document.getElementById("tiles");
+  alvo.replaceChildren();
+  const edicao = document.getElementById("f-edicao").value;
+  const escopo = cartas.filter(c => !edicao || c.col === edicao);
+  const minhas = escopo.filter(c => posse.has(c.k));
+  const faltam = escopo.filter(c => !posse.has(c.k));
+  const soma = lista => lista.reduce((t, c) => t + (c.medio || 0), 0);
+  alvo.append(
+    tile("Cartas que tenho", `${minhas.length} de ${escopo.length}`,
+         `${Math.round((minhas.length / (escopo.length || 1)) * 100)}% ${edicao ? "da edição" : "das duas edições"}`,
+         minhas.length / (escopo.length || 1)),
+    tile("Valor do que tenho", brl.format(soma(minhas)), "somando o preço médio atual"),
+    tile("Falta para completar", brl.format(soma(faltam)),
+         `${faltam.length} carta${faltam.length === 1 ? "" : "s"} pelo preço médio`),
+  );
+}
+
+// ------------------------------------------------------------- tabela
+function sparkline(carta) {
+  const w = 120, h = 30, pad = 3;
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
+  svg.setAttribute("class", "spark");
+  svg.setAttribute("aria-hidden", "true");
+  const pts = carta.s.filter(p => p[1] != null);
+  if (!pts.length) return svg;
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (y0 === y1) { y0 -= 1; y1 += 1; }
+  const X = x => x1 === x0 ? w - pad : pad + ((x - x0) / (x1 - x0)) * (w - 2 * pad);
+  const Y = y => h - pad - ((y - y0) / (y1 - y0)) * (h - 2 * pad);
+  if (pts.length > 1) {
+    const linha = document.createElementNS(SVGNS, "polyline");
+    linha.setAttribute("points", pts.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" "));
+    linha.setAttribute("fill", "none");
+    linha.setAttribute("stroke", "var(--serie-1)");
+    linha.setAttribute("stroke-width", "1.5");
+    linha.setAttribute("stroke-linejoin", "round");
+    linha.setAttribute("stroke-linecap", "round");
+    svg.appendChild(linha);
+  }
+  const fim = pts[pts.length - 1];
+  const ponto = document.createElementNS(SVGNS, "circle");
+  ponto.setAttribute("cx", X(fim[0])); ponto.setAttribute("cy", Y(fim[1]));
+  ponto.setAttribute("r", 2.5); ponto.setAttribute("fill", "var(--serie-1)");
+  svg.appendChild(ponto);
+  return svg;
+}
+
+function celulaTendencia(t) {
+  const td = document.createElement("td");
+  td.className = "num tend";
+  if (!t) {
+    const s = document.createElement("span"); s.className = "sem"; s.textContent = "—";
+    s.title = "Precisa de 3 coletas cobrindo 2 horas na janela";
+    td.appendChild(s); return td;
+  }
+  const estavel = Math.abs(t.pctDia) < 0.5;
+  const simbolo = estavel ? "▬" : t.pctDia > 0 ? "▲" : "▼";
+  const rotulo = estavel ? "estável" : t.pctDia > 0 ? "subindo" : "caindo";
+  const p = document.createElement("span");
+  p.textContent = `${simbolo} ${pct.format(t.pctDia)}%/dia`;
+  p.title = rotulo;
+  const d = document.createElement("span"); d.className = "dia";
+  d.textContent = `${t.porDia >= 0 ? "+" : "−"}${brl.format(Math.abs(t.porDia))}/dia`;
+  td.append(p, d);
+  return td;
+}
+
+function linhaCarta(c) {
+  const tr = document.createElement("tr");
+  tr.className = "carta" + (posse.has(c.k) ? " tenho" : "");
+  tr.dataset.k = c.k;
+
+  const tdCheck = document.createElement("td"); tdCheck.className = "check";
+  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = posse.has(c.k);
+  cb.setAttribute("aria-label", `Tenho ${c.pt || c.en}`);
+  cb.addEventListener("click", ev => ev.stopPropagation());
+  cb.addEventListener("change", () => {
+    if (cb.checked) posse.add(c.k); else posse.delete(c.k);
+    salvarPosse();
+    tr.classList.toggle("tenho", cb.checked);
+    montarTiles();
+    if (document.getElementById("f-posse").value) render();
+  });
+  tdCheck.appendChild(cb);
+
+  const tdCarta = document.createElement("td");
+  const cel = document.createElement("div"); cel.className = "cel-carta";
+  if (c.img) {
+    const img = document.createElement("img");
+    img.src = c.img; img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+    cel.appendChild(img);
+  }
+  const nomes = document.createElement("div");
+  const pt = document.createElement("div"); pt.className = "nome-pt"; pt.textContent = c.pt || c.en;
+  const en = document.createElement("div"); en.className = "nome-en";
+  en.textContent = `#${c.num} · ${c.col}${c.pt && c.pt !== c.en.replace(/\s*\(#.*\)$/, "") ? " · " + c.en.replace(/\s*\(#.*\)$/, "") : ""}`;
+  nomes.append(pt, en);
+  cel.appendChild(nomes);
+  tdCarta.appendChild(cel);
+
+  const tdMedio = document.createElement("td"); tdMedio.className = "num";
+  tdMedio.textContent = c.medio != null ? brl.format(c.medio) : "sem oferta";
+  const tdMin = document.createElement("td"); tdMin.className = "num col-min";
+  tdMin.textContent = c.min != null ? brl.format(c.min) : "—";
+  const tdSpark = document.createElement("td"); tdSpark.className = "col-spark";
+  tdSpark.appendChild(sparkline(c));
+
+  tr.append(tdCheck, tdCarta, tdMedio, tdMin, tdSpark, celulaTendencia(c.tend));
+  tr.addEventListener("click", () => { aberta = aberta === c.k ? null : c.k; render(); });
+  return tr;
+}
+
+function render() {
+  const edicao = document.getElementById("f-edicao").value;
+  const filtroPosse = document.getElementById("f-posse").value;
+  const busca = document.getElementById("f-busca").value.trim().toLowerCase();
+  for (const c of cartas) c.tend = tendencia(c);
+
+  let lista = cartas.filter(c =>
+    (!edicao || c.col === edicao) &&
+    (!filtroPosse || (filtroPosse === "tenho") === posse.has(c.k)) &&
+    (!busca || `${c.pt} ${c.en} ${c.num}`.toLowerCase().includes(busca))
+  );
+  const valor = {
+    num: c => c.ordemNum,
+    medio: c => c.medio ?? -Infinity,
+    min: c => c.min ?? -Infinity,
+    tend: c => c.tend ? c.tend.pctDia : -Infinity,
+  }[ordem.campo];
+  lista.sort((a, b) => {
+    const va = valor(a), vb = valor(b);
+    const r = va < vb ? -1 : va > vb ? 1 : 0;
+    return ordem.desc ? -r : r;
+  });
+
+  for (const th of document.querySelectorAll("th[data-ordem]")) {
+    th.querySelector(".seta").textContent = th.dataset.ordem === ordem.campo ? (ordem.desc ? "↓" : "↑") : "";
+  }
+
+  const corpo = document.getElementById("corpo");
+  corpo.replaceChildren();
+  if (!lista.length) {
+    const tr = document.createElement("tr"); const td = document.createElement("td");
+    td.colSpan = 6; td.className = "vazio"; td.textContent = "Nenhuma carta com esses filtros.";
+    tr.appendChild(td); corpo.appendChild(tr);
+  }
+  for (const c of lista) {
+    corpo.appendChild(linhaCarta(c));
+    if (aberta === c.k) corpo.appendChild(linhaDetalhe(c));
+  }
+  montarTiles();
+}
+
+// ------------------------------------------------------------ detalhe
+function linhaDetalhe(c) {
+  const tr = document.createElement("tr"); tr.className = "detalhe";
+  const td = document.createElement("td"); td.colSpan = 6;
+  const grade = document.createElement("div"); grade.className = "det-grade";
+
+  const lado = document.createElement("div");
+  if (c.img) {
+    const img = document.createElement("img");
+    img.src = c.img; img.alt = c.pt || c.en; img.referrerPolicy = "no-referrer";
+    lado.appendChild(img);
+  }
+  const link = document.createElement("a");
+  link.href = c.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+  link.textContent = "Ver ofertas na Liga ↗";
+  const p = document.createElement("p"); p.appendChild(link);
+  lado.appendChild(p);
+
+  const direita = document.createElement("div");
+  const legenda = document.createElement("div"); legenda.className = "legenda";
+  const chaves = [["Preço médio", "var(--serie-1)", ""], ["Preço mínimo", "var(--serie-2)", ""], ["Tendência (regressão)", "var(--ink)", "trac"]];
+  for (const [nome, cor, cls] of chaves) {
+    const s = document.createElement("span");
+    const k = document.createElement("i"); k.className = `chave ${cls}`; k.style.borderColor = cor;
+    s.append(k, document.createTextNode(nome));
+    legenda.appendChild(s);
+  }
+  direita.append(legenda, grafico(c));
+
+  const resumo = document.createElement("div"); resumo.className = "resumo";
+  const t = c.tend;
+  if (t) {
+    const janela = document.getElementById("f-janela").selectedOptions[0].textContent;
+    const proj = t.a * ((Date.now() / 1000 - t.t0) / 86400 + 7) + t.b;
+    resumo.textContent =
+      `Tendência em ${janela}: ${t.porDia >= 0 ? "+" : "−"}${brl.format(Math.abs(t.porDia))} por dia ` +
+      `(${pct.format(t.pctDia)}%/dia), ${t.n} pontos, R² ${t.r2.toFixed(2)}. ` +
+      `Se seguir a reta, daqui a 7 dias: ${brl.format(Math.max(0, proj))}. ` +
+      (t.r2 < 0.3 ? "R² baixo: o preço oscila mais do que segue uma direção — leia a reta com cautela." : "");
+  } else {
+    resumo.textContent = "Ainda sem histórico suficiente nesta janela para calcular a tendência.";
+  }
+  direita.appendChild(resumo);
+
+  grade.append(lado, direita);
+  td.appendChild(grade); tr.appendChild(td);
+  return tr;
+}
+
+function grafico(c) {
+  const W = 760, H = 260, m = { t: 10, r: 16, b: 26, l: 68 };
+  const caixa = document.createElement("div"); caixa.className = "grafico";
+  const pts = c.s.filter(p => p[1] != null || p[2] != null);
+  if (!pts.length) {
+    caixa.textContent = "Sem ofertas registradas para esta carta.";
+    return caixa;
+  }
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Evolução do preço de ${c.pt || c.en}`);
+
+  const t = c.tend;
+  const xs = pts.map(p => p[0]);
+  const ys = pts.flatMap(p => [p[1], p[2]]).filter(v => v != null);
+  let x0 = Math.min(...xs), x1 = Math.max(...xs);
+  if (x0 === x1) { x0 -= 3600; x1 += 3600; }
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (t) {
+    for (const x of [t.pts[0][0], t.pts[t.pts.length - 1][0]]) {
+      const y = t.a * ((x - t.t0) / 86400) + t.b; y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+  }
+  const folga = (y1 - y0) * 0.08 || Math.max(1, y1 * 0.05);
+  y0 = Math.max(0, y0 - folga); y1 += folga;
+  const X = x => m.l + ((x - x0) / (x1 - x0)) * (W - m.l - m.r);
+  const Y = y => H - m.b - ((y - y0) / (y1 - y0)) * (H - m.t - m.b);
+  const el = (tag, attrs, pai = svg) => {
+    const e = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    pai.appendChild(e); return e;
+  };
+
+  // grade e eixo Y
+  const passos = 4;
+  for (let i = 0; i <= passos; i++) {
+    const v = y0 + ((y1 - y0) * i) / passos;
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: i === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 });
+    const tx = el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 });
+    // Centavos so quando a faixa e estreita; senao os rotulos ficam poluidos.
+    tx.textContent = y1 - y0 >= 20 ? brl.format(v).replace(/,\d\d$/, "") : brl.format(v);
+  }
+  // eixo X: ate 6 marcas; mostra so hora quando tudo cabe no mesmo dia
+  const mesmoDia = x1 - x0 < 86400;
+  for (let i = 0; i <= 5; i++) {
+    const x = x0 + ((x1 - x0) * i) / 5;
+    const tx = el("text", { x: X(x), y: H - 6, "text-anchor": i === 0 ? "start" : i === 5 ? "end" : "middle", fill: "var(--muted)", "font-size": 11 });
+    tx.textContent = (mesmoDia ? soHora : soData).format(new Date(x * 1000));
+  }
+
+  const caminho = (idx) => pts.filter(p => p[idx] != null).map(p => `${X(p[0]).toFixed(1)},${Y(p[idx]).toFixed(1)}`).join(" ");
+  const medios = pts.filter(p => p[1] != null);
+  if (medios.length > 1) {
+    el("polygon", {
+      points: `${X(medios[0][0])},${Y(y0)} ${caminho(1)} ${X(medios[medios.length - 1][0])},${Y(y0)}`,
+      fill: "var(--serie-1-wash)",
+    });
+  }
+  for (const [idx, cor] of [[2, "var(--serie-2)"], [1, "var(--serie-1)"]]) {
+    el("polyline", { points: caminho(idx), fill: "none", stroke: cor, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" });
+  }
+  if (t) {
+    const xa = t.pts[0][0], xb = t.pts[t.pts.length - 1][0];
+    const ya = t.a * ((xa - t.t0) / 86400) + t.b, yb = t.a * ((xb - t.t0) / 86400) + t.b;
+    // Halo na cor do fundo para a reta nao sumir sob o ruido da linha do preco.
+    el("line", { x1: X(xa), y1: Y(ya), x2: X(xb), y2: Y(yb), stroke: "var(--page)", "stroke-width": 5, "stroke-linecap": "round" });
+    el("line", { x1: X(xa), y1: Y(ya), x2: X(xb), y2: Y(yb), stroke: "var(--ink)", "stroke-width": 2, "stroke-dasharray": "6 4" });
+  }
+  // ponto final com anel na cor da superficie
+  const ult = medios[medios.length - 1];
+  if (ult) el("circle", { cx: X(ult[0]), cy: Y(ult[1]), r: 4, fill: "var(--serie-1)", stroke: "var(--page)", "stroke-width": 2 });
+
+  // mira + dica
+  const mira = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
+  const marcas = [el("circle", { r: 4, fill: "var(--serie-1)", stroke: "var(--page)", "stroke-width": 2, visibility: "hidden" }),
+                  el("circle", { r: 4, fill: "var(--serie-2)", stroke: "var(--page)", "stroke-width": 2, visibility: "hidden" })];
+  const alvo = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" });
+  const dica = document.createElement("div"); dica.className = "dica";
+  caixa.append(svg, dica);
+
+  function mostrar(ev) {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const alvoX = x0 + ((px - m.l) / (W - m.l - m.r)) * (x1 - x0);
+    let melhor = pts[0];
+    for (const p of pts) if (Math.abs(p[0] - alvoX) < Math.abs(melhor[0] - alvoX)) melhor = p;
+    const cx = X(melhor[0]);
+    mira.setAttribute("x1", cx); mira.setAttribute("x2", cx); mira.setAttribute("visibility", "visible");
+    [1, 2].forEach((idx, i) => {
+      const v = melhor[idx];
+      marcas[i].setAttribute("visibility", v == null ? "hidden" : "visible");
+      if (v != null) { marcas[i].setAttribute("cx", cx); marcas[i].setAttribute("cy", Y(v)); }
+    });
+    dica.replaceChildren();
+    const q = document.createElement("div"); q.className = "quando"; q.textContent = dataHora.format(new Date(melhor[0] * 1000));
+    dica.appendChild(q);
+    for (const [idx, nome, cor] of [[1, "médio", "var(--serie-1)"], [2, "mínimo", "var(--serie-2)"]]) {
+      const l = document.createElement("div"); l.className = "linha";
+      const k = document.createElement("i"); k.className = "chave"; k.style.borderColor = cor;
+      const b = document.createElement("b"); b.textContent = melhor[idx] != null ? brl.format(melhor[idx]) : "—";
+      l.append(k, b, document.createTextNode(nome));
+      dica.appendChild(l);
+    }
+    dica.style.display = "block";
+    const esq = (cx / W) * r.width;
+    const larg = dica.offsetWidth;
+    dica.style.left = `${esq + 12 + larg > r.width ? esq - larg - 12 : esq + 12}px`;
+    dica.style.top = "8px";
+  }
+  function esconder() {
+    mira.setAttribute("visibility", "hidden");
+    marcas.forEach(mk => mk.setAttribute("visibility", "hidden"));
+    dica.style.display = "none";
+  }
+  alvo.addEventListener("pointermove", mostrar);
+  alvo.addEventListener("pointerleave", esconder);
+  return caixa;
+}
+
+// ------------------------------------------------------------ eventos
+for (const id of ["f-edicao", "f-posse", "f-janela"]) document.getElementById(id).addEventListener("change", render);
+document.getElementById("f-busca").addEventListener("input", render);
+for (const th of document.querySelectorAll("th[data-ordem]")) {
+  th.addEventListener("click", () => {
+    const campo = th.dataset.ordem;
+    ordem = { campo, desc: ordem.campo === campo ? !ordem.desc : campo !== "num" };
+    render();
+  });
+}
+document.getElementById("exportar").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ tenho: [...posse].sort() }, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "pokemon30-tenho.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.getElementById("importar-btn").addEventListener("click", () => document.getElementById("importar").click());
+document.getElementById("importar").addEventListener("change", async ev => {
+  const arquivo = ev.target.files[0];
+  if (!arquivo) return;
+  try {
+    const lido = JSON.parse(await arquivo.text());
+    const validas = new Set(cartas.map(c => c.k));
+    for (const k of lido.tenho || []) if (validas.has(k)) posse.add(k);
+    salvarPosse(); render();
+  } catch (e) {
+    const aviso = document.getElementById("aviso");
+    aviso.hidden = false; aviso.textContent = "Não consegui ler esse arquivo de marcações.";
+  }
+  ev.target.value = "";
+});
+
+// ------------------------------------------------------------ atualizar
+// So funciona servido pelo servidor_painel.py; aberto do disco, o navegador
+// nao deixa a pagina rodar nada na maquina.
+const ENDERECO_SERVIDOR = "http://127.0.0.1:8787/";
+document.getElementById("atualizar").addEventListener("click", async () => {
+  const botao = document.getElementById("atualizar");
+  const estado = document.getElementById("estado");
+  if (location.protocol === "file:") {
+    estado.replaceChildren(document.createTextNode("O botão só funciona pelo servidor: "));
+    const a = document.createElement("a");
+    a.href = ENDERECO_SERVIDOR; a.textContent = "abrir 127.0.0.1:8787";
+    estado.appendChild(a);
+    return;
+  }
+  botao.disabled = true;
+  estado.textContent = "Coletando preços na Liga…";
+  try {
+    const r = await fetch("atualizar", { method: "POST", headers: { "X-Painel-Precos": "1" } });
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || `erro ${r.status}`);
+    estado.textContent = "Pronto, recarregando…";
+    location.reload();
+  } catch (e) {
+    estado.textContent = `Não deu certo: ${e.message}`;
+    botao.disabled = false;
+  }
+});
+
+montarTopo();
+render();
+</script>
+</body>
+</html>

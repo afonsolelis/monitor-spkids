@@ -1,8 +1,16 @@
-# Monitor SP Kids — coleção Pokémon 30 anos
+# Monitor SP Kids + Copag — coleção Pokémon 30 anos
 
-Avisa por e-mail quando a **SP Kids Distribuidora** listar a coleção de
-30 anos de Pokémon. Roda de hora em hora pelo cron, sem precisar de login
-no site.
+Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas lojas:
+
+- **SP Kids Distribuidora**: quando a coleção for listada.
+- **Copag B2B** (`b2b.copagloja.com.br/pokemon`): a coleção já está cadastrada,
+  mas sem estoque. O aviso sai quando algum item **entra em estoque**.
+
+Roda a cada 15 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
+
+De hora em hora ele também grava o preço de todas as cartas das duas edições
+(188 cartas) num CSV e gera um painel HTML com a evolução, a tendência de cada
+carta e uma caixa para marcar as que você já tem. Veja [Preço das cartas](#preço-das-cartas).
 
 ---
 
@@ -18,7 +26,7 @@ cd monitor-spkids
 
 O `instalar.sh` prepara tudo: cria o ambiente Python (tenta `uv`, depois
 `venv`, e no pior caso usa o Python do sistema), cria as pastas, roda um teste
-e instala o cron de hora em hora. Rodar de novo é seguro — ele não duplica o
+e instala o cron a cada 15 minutos. Rodar de novo é seguro — ele não duplica o
 cron nem sobrescreve suas credenciais.
 
 ### 2. Colocar a Senha de App do Gmail
@@ -51,7 +59,10 @@ Se o e-mail chegar, está pronto. Se aparecer
 ```bash
 crontab -l                                  # confirmar o agendamento
 tail -f ~/.local/state/spkids/monitor.log   # ver as execuções
-./rodar_monitor.sh                          # rodar na mão agora
+./rodar_monitor.sh                          # rodar na mão agora (as duas lojas)
+./rodar_monitor.sh copag                    # só a Copag
+./rodar_monitor.sh spkids                   # só a SP Kids
+./rodar_monitor.sh precos                   # coletar o preço das cartas agora
 ```
 
 A partir daí é só esperar: o e-mail chega sozinho quando algo mudar.
@@ -86,6 +97,109 @@ Os padrões foram validados contra os 40 nomes reais da coleção como listados
 no mercado brasileiro, normalizados para o estilo do catálogo da SP Kids
 (maiúscula, sem acento): 40 de 40 detectados, sem casar com falsos positivos
 como `PASTA 3X3 C/ 30 FOLHAS`.
+
+---
+
+## Copag B2B
+
+A loja roda em VTEX. A API de catálogo clássica recusa as consultas (os canais
+de venda do B2B são restritos), mas o **Intelligent Search**
+(`/api/io/_v/api/intelligent-search`) é público e devolve nome, categoria,
+preço e estoque sem login. O catálogo inteiro tem cerca de 170 produtos, então
+cada execução baixa tudo em 4 requisições.
+
+Na primeira verificação (23/09/2026) os 8 itens da categoria
+`Pokémon › 30 Anos` já estavam no catálogo, **todos com estoque zero**. Por
+isso o monitor da Copag avisa sobre mudança de estoque, não sobre produto novo:
+
+| Evento | Alerta |
+|---|---|
+| item de 30 anos passa de 0 para disponível | **urgente**: `DISPONIVEL na Copag B2B!` |
+| item de 30 anos novo no catálogo | **urgente** |
+| item de 30 anos esgota | informativo |
+| outro produto Pokémon novo | informativo |
+| página Pokémon nova no sitemap, ainda fora da busca | informativo |
+
+Todo e-mail traz a situação atual dos itens da coleção (preço e estoque). O
+preço mostrado é o público da loja; o preço B2B de quem está logado pode ser
+diferente.
+
+O estado fica em `dados/copag-estado.json`. Usa as mesmas credenciais de
+e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
+
+```bash
+.venv/bin/python monitor_copag.py --help
+.venv/bin/python monitor_copag.py --sem-estado        # só ver a situação atual
+```
+
+---
+
+## Preço das cartas
+
+`precos_cartas.py` roda de hora em hora (cron próprio) e cobre as duas edições:
+
+| Edição | Sigla na Liga | Cartas |
+|---|---|---|
+| Celebração de 30 Anos | `30C` | 158 |
+| Cartas Clássicas (Classic Collection) | `30C-C` | 30 |
+
+**Fonte: LigaPokemon, não MYP Cards.** A MYP Cards bloqueia qualquer acesso
+automatizado com o desafio anti-robô do Cloudflare. Contornar esse bloqueio
+seria burlar a proteção do site, então o monitor usa a LigaPokemon. Ela tem as
+mesmas duas edições, com preços em reais, e a página de cada edição já traz um
+JSON com o preço mínimo, médio e máximo de cada carta.
+
+### Arquivos
+
+| Caminho | Conteúdo |
+|---|---|
+| `dados/precos-cartas.csv` | **versionado: é o banco do histórico.** Uma linha por carta por coleta: `coletado_em, colecao, numero, nome_en, nome_pt, preco_min, preco_medio, preco_max` |
+| `dados/precos-cartas.html` | o painel, regerado a cada coleta |
+| `painel_precos.html` | modelo do painel (versionado). O script injeta os dados nele |
+
+O CSV só recebe linhas no fim, e o `.gitattributes` marca ele com
+`merge=union`. Se duas máquinas coletarem e fizerem commit, o `git pull` junta
+as linhas das duas em vez de dar conflito. O painel ordena por data ao ler.
+
+### O painel
+
+Abra em **http://127.0.0.1:8787**. O `instalar.sh` cria um serviço de usuário
+do systemd (`painel-precos.service`, sem sudo) que sobe o `servidor_painel.py`
+junto com a sessão. Por esse endereço, o botão **Atualizar preços agora** roda
+a coleta na hora e recarrega a página. Ele usa o mesmo `rodar_monitor.sh precos`
+do cron, com a mesma trava, então o botão e o cron nunca coletam juntos.
+
+Aberto direto do disco (`file://`), o painel funciona, mas o botão não: o
+navegador não deixa uma página rodar programas na máquina. O servidor só escuta
+em `127.0.0.1` e recusa pedidos de outros sites.
+
+```bash
+systemctl --user status painel-precos     # ver se está no ar
+systemctl --user restart painel-precos    # depois de atualizar o código
+```
+
+- Resumo no topo: quantas cartas você tem, quanto valem e quanto falta para completar.
+- Tabela com preço médio, mínimo, uma mini-linha da evolução e a tendência em
+  %/dia e R$/dia. Pode ordenar por qualquer coluna e filtrar por edição, por
+  "só as que faltam"/"só as que tenho" e por nome.
+- Clique numa carta para ver o gráfico completo: preço médio, preço mínimo e a reta
+  da regressão, com a projeção para 7 dias e o R².
+- **Tendência**: regressão linear simples do preço médio na janela escolhida
+  (24 horas, 7 dias ou todo o período). Só aparece com pelo menos 3 coletas
+  cobrindo 2 horas. R² baixo significa que o preço oscila mais do que segue
+  uma direção.
+- **Tenho**: a marcação fica salva no navegador (`localStorage`) e sobrevive
+  às atualizações do painel. Ela fica presa ao endereço e ao navegador: o que
+  foi marcado em `file://` não aparece em `127.0.0.1:8787`, nem em outro
+  computador. Use **Exportar marcações** e **Importar** para levar.
+
+O HTML embute o histórico: hora a hora nos últimos 14 dias, e um ponto por dia
+antes disso, para o arquivo não crescer sem limite.
+
+```bash
+.venv/bin/python precos_cartas.py              # coletar agora e regerar o painel
+.venv/bin/python precos_cartas.py --so-html    # só regerar o painel a partir do CSV
+```
 
 ---
 
@@ -142,10 +256,13 @@ da máquina.
 |---|---|
 | `~/.config/spkids/env` | credenciais SMTP, permissão `600` |
 | `~/.local/state/spkids/monitor.log` | log de cada execução |
-| `dados/spkids-estado.json` | catálogo da execução anterior |
+| `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
+| `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
+| `dados/precos-cartas.html` | painel gerado a partir do CSV |
+| `~/.local/state/spkids/precos.log` | log da coleta de preços |
 
 ## Limitação conhecida
 
-O cron não recupera execução perdida: se a máquina estiver suspensa às 14h,
-não roda 14h — roda 15h. Para garantia em máquina que dorme, troque por um
+O cron não recupera execução perdida: se a máquina estiver suspensa às 14h00,
+não roda 14h00 — roda na próxima janela de 15 minutos em que estiver acordada. Para garantia em máquina que dorme, troque por um
 timer do systemd com `Persistent=true`.
