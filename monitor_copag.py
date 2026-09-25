@@ -331,7 +331,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.sem_estado:
         salvar_estado(args.estado, produtos, sitemap)
-        log.info("estado gravado em %s", args.estado)
 
     return 10 if achados.houve_novidade else 0
 

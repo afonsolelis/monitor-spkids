@@ -251,9 +251,11 @@ def gravar_estado(caminho: Path, dados: dict[str, Any]) -> None:
     cliente = _redis()
     if cliente is not None:
         cliente.set(f"spkids:{caminho.name}", texto)
+        log.info("estado gravado no Key Value (spkids:%s)", caminho.name)
         return
     caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(texto, encoding="utf-8")
+    log.info("estado gravado em %s", caminho)
 
 
 def salvar_estado(
@@ -699,7 +701,6 @@ def main(argv: list[str] | None = None) -> int:
             sitemap if sitemap is not None else estado.get("sitemap", []),
             ja_avisados | achados.chaves_lancamento(),
         )
-        log.info("estado gravado em %s", args.estado)
 
     if falhou:
         log.error("nenhum canal entregou o aviso")
