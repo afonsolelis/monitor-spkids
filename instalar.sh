@@ -77,8 +77,14 @@ instalar_cron() {  # $1 = linha desejada, $2 = trecho que identifica a linha, $3
 
 echo "==> cron"
 MONITOR="$REPO/rodar_monitor.sh"
-instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
-  "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
+# Uma linha ja ajustada a mao (outra frequencia, so uma loja porque a outra roda
+# em outro lugar) fica como esta: instalar a padrao por cima duplicaria alertas.
+if crontab -l 2>/dev/null | grep -v '^#' | grep -Fq "$MONITOR "; then
+  echo "    ja existe uma linha do monitor no crontab; mantida como esta"
+else
+  instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
+    "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
+fi
 
 # ---------------------------------------------- servidor do painel (antigo)
 # O painel agora vive no GitHub Pages e le do Supabase; o servidor local que
