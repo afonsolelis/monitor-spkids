@@ -1,0 +1,36 @@
+# Confere uma vez por dia se a coleta no Supabase esta andando. Falha (e o
+# GitHub manda e-mail) quando a ultima coleta tem mais de 3 horas. De quebra,
+# o acesso diario conta como uso e evita que o plano gratis pause o projeto
+# por inatividade.
+name: Coleta no Supabase
+
+on:
+  schedule:
+    - cron: "47 11 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    env:
+      # Chave publicavel: a mesma que esta no painel, so le.
+      SUPABASE_URL: https://lwamaovuxcevsjfvtqhf.supabase.co
+      SUPABASE_CHAVE: sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ
+    steps:
+      - name: Última coleta
+        run: |
+          set -euo pipefail
+          resposta="$(curl -sS --fail-with-body --retry 3 --retry-all-errors \
+            -H "apikey: $SUPABASE_CHAVE" \
+            "$SUPABASE_URL/rest/v1/coletas?select=momento,origem,cartas,com_preco&origem=neq.importado&order=momento.desc&limit=1")"
+          echo "$resposta"
+          momento="$(echo "$resposta" | jq -r '.[0].momento // empty')"
+          [ -n "$momento" ] || { echo "::error::nenhuma coleta no Supabase"; exit 1; }
+          idade=$(( $(date +%s) - $(date -d "$momento" +%s) ))
+          echo "última coleta há $(( idade / 60 )) minutos"
+          if [ "$idade" -gt 10800 ]; then
+            echo "::error::a última coleta foi há mais de 3 horas; ver cron.job_run_details no Supabase"
+            exit 1
+          fi

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cartas Pokémon 30 anos</title>
-<!-- Modelo do painel. O precos_cartas.py troca o marcador de dados abaixo
-     pelo historico e grava o resultado em dados/precos-cartas.html. -->
+<!-- Painel publicado no GitHub Pages. Os dados vem do Supabase ao abrir
+     (rpc painel_precos, ver supabase/coleta_precos.sql). -->
 <style>
 :root {
   color-scheme: light;
@@ -165,7 +165,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     </div>
     <div class="acao">
       <span class="estado" id="estado" role="status"></span>
-      <button type="button" class="primario" id="atualizar" hidden>Atualizar preços agora</button>
+      <button type="button" class="primario" id="atualizar" disabled>Atualizar preços agora</button>
     </div>
   </div>
   <div class="aviso" id="aviso" hidden></div>
@@ -216,17 +216,17 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     Preços do TCGplayer pela API da PokéWallet, convertidos de dólar para real pela cotação de
     cada coleta (mínimo, médio e máximo das ofertas de cada carta). A tendência é
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
-    diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
-    navegador e no Supabase, e aparecem iguais em qualquer aparelho. Use Exportar para
-    guardar uma cópia.
+    diária dividida pelo preço médio da janela. A coleta roda sozinha de hora em hora; até
+    23/09/2026 o histórico é da LigaPokemon (preço de loja brasileira). As marcações de
+    "tenho" ficam salvas neste navegador e no Supabase, e aparecem iguais em qualquer
+    aparelho. Use Exportar para guardar uma cópia.
   </p>
 </main>
 
-<script id="dados" type="application/json">/*__DADOS__*/null</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
-const DADOS = JSON.parse(document.getElementById("dados").textContent);
+let DADOS = null;
 const CHAVE_POSSE = "pokemon30:tenho";
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const pct = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" });
@@ -247,13 +247,14 @@ function salvarPosse() {
 let posse = lerPosse();
 
 // ------------------------------------------------------------- supabase
-// As marcacoes ficam na tabela cartas_marcadas (ver supabase/cartas_marcadas.sql),
-// uma lista so, sem login. O localStorage vira copia: quando o Supabase
-// responde, e ele que vale. Sem a biblioteca (offline, aberto do disco), fica
-// so o localStorage.
+// Os precos vem do Supabase (supabase/coleta_precos.sql), e as marcacoes
+// ficam na tabela cartas_marcadas (supabase/cartas_marcadas.sql), uma lista
+// so, sem login. O localStorage vira copia das marcacoes: quando o Supabase
+// responde, e ele que vale. A chave e a publicavel: so le os precos e mexe
+// nas marcacoes.
 const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
 const SUPABASE_CHAVE = "sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ";
-const nuvem = window.supabase && location.protocol !== "file:"
+const nuvem = window.supabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_CHAVE, { auth: { persistSession: false } })
   : null;
 
@@ -318,17 +319,20 @@ function tendencia(carta) {
 }
 
 // ------------------------------------------------------------ preparo
-const cartas = DADOS ? DADOS.cartas.map(c => {
-  const validos = c.s.filter(p => p[1] != null);
-  const ultimo = validos[validos.length - 1];
-  const ultimoMin = [...c.s].reverse().find(p => p[2] != null);
-  return {
-    ...c,
-    medio: ultimo ? ultimo[1] : null,
-    min: ultimoMin ? ultimoMin[2] : null,
-    ordemNum: (c.col === "30C" ? "0" : "1") + c.num.padStart(6, "0"),
-  };
-}) : [];
+function preparar(dados) {
+  return dados.cartas.map(c => {
+    const validos = c.s.filter(p => p[1] != null);
+    const ultimo = validos[validos.length - 1];
+    const ultimoMin = [...c.s].reverse().find(p => p[2] != null);
+    return {
+      ...c,
+      medio: ultimo ? ultimo[1] : null,
+      min: ultimoMin ? ultimoMin[2] : null,
+      ordemNum: (c.col === "30C" ? "0" : "1") + c.num.padStart(6, "0"),
+    };
+  });
+}
+let cartas = [];
 
 let ordem = { campo: "num", desc: false };
 let aberta = null;
@@ -336,20 +340,29 @@ let aberta = null;
 // ---------------------------------------------------------------- topo
 function montarTopo() {
   const sub = document.getElementById("sub");
-  if (!DADOS) { sub.textContent = "Sem dados — rode precos_cartas.py"; return; }
-  const gerado = new Date(DADOS.gerado_em);
-  sub.textContent = `TCGplayer (PokéWallet) · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
-  if (DADOS.coletas < 3) {
-    const aviso = document.getElementById("aviso");
-    aviso.hidden = false;
-    aviso.textContent = "Ainda juntando histórico: a tendência aparece depois de 3 coletas cobrindo pelo menos 2 horas.";
-  }
+  if (!DADOS) return;
+  sub.textContent = DADOS.gerado_em
+    ? `TCGplayer (PokéWallet) · atualizado em ${dataHora.format(new Date(DADOS.gerado_em))} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`
+    : "Nenhuma coleta ainda";
+  const aviso = document.getElementById("aviso");
+  aviso.hidden = DADOS.coletas >= 3;
+  aviso.textContent = "Ainda juntando histórico: a tendência aparece depois de 3 coletas cobrindo pelo menos 2 horas.";
   const sel = document.getElementById("f-edicao");
   for (const [sigla, nome] of Object.entries(DADOS.edicoes)) {
+    if ([...sel.options].some(op => op.value === sigla)) continue;
     const op = document.createElement("option");
     op.value = sigla; op.textContent = `${nome} (${sigla})`;
     sel.appendChild(op);
   }
+}
+
+async function carregar() {
+  const { data, error } = await nuvem.rpc("painel_precos");
+  if (error) throw new Error(error.message);
+  DADOS = data;
+  cartas = preparar(DADOS);
+  montarTopo();
+  render();
 }
 
 function tile(rotulo, valor, detalhe, fracao) {
@@ -517,7 +530,8 @@ function render() {
   corpo.replaceChildren();
   if (!lista.length) {
     const tr = document.createElement("tr"); const td = document.createElement("td");
-    td.colSpan = 6; td.className = "vazio"; td.textContent = "Nenhuma carta com esses filtros.";
+    td.colSpan = 6; td.className = "vazio";
+    td.textContent = DADOS ? "Nenhuma carta com esses filtros." : "Carregando…";
     tr.appendChild(td); corpo.appendChild(tr);
   }
   for (const c of lista) {
@@ -732,75 +746,50 @@ document.getElementById("importar").addEventListener("change", async ev => {
 });
 
 // ------------------------------------------------------------ atualizar
-// Local (servidor_painel.py), o botao roda a coleta na maquina. Publicado
-// (GitHub Pages), pede ao Supabase que dispare o workflow do Actions (ver
-// supabase/atualizar_precos.sql) e recarrega quando a pagina nova sair. Aberto
-// do disco, o navegador nao deixa a pagina rodar nada na maquina.
-const ENDERECO_SERVIDOR = "http://127.0.0.1:8787/";
-const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);
-document.getElementById("atualizar").hidden = !(location.protocol === "file:" || LOCAL || nuvem);
-
-async function geradoEmPublicado() {
-  const r = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: "no-store" });
-  const html = new DOMParser().parseFromString(await r.text(), "text/html");
-  return JSON.parse(html.getElementById("dados").textContent)?.gerado_em;
-}
-
-async function atualizarPublicado(botao, estado) {
-  const { data, error } = await nuvem.rpc("atualizar_precos");
-  if (error) throw new Error(error.message);
-  if (!data.ok) {
-    if (data.liberado_em) {
-      const hora = soHora.format(new Date(data.liberado_em));
-      throw new Error(`já tem uma coleta recente; o botão libera às ${hora}`);
-    }
-    throw new Error(data.erro || "o Supabase recusou");
-  }
-  // O Actions leva 1 a 2 minutos para coletar e publicar.
-  const antes = DADOS?.gerado_em;
-  const inicio = Date.now();
-  while (Date.now() - inicio < 6 * 60 * 1000) {
-    const passados = Math.round((Date.now() - inicio) / 1000);
-    estado.textContent = `Coletando no GitHub… ${passados}s (leva uns 2 minutos)`;
-    await new Promise(ok => setTimeout(ok, 15000));
-    const agora = await geradoEmPublicado().catch(() => antes);
-    if (agora && agora !== antes) {
-      estado.textContent = "Pronto, recarregando…";
-      location.replace(`${location.pathname}?v=${Date.now()}`);
-      return;
-    }
-  }
-  throw new Error("a coleta ainda não apareceu; recarregue daqui a pouco");
+// O botao pede ao Supabase uma coleta na hora (rpc atualizar_precos, uns 5 a
+// 15 segundos) e recarrega os dados. Entre duas coletas ha uma espera minima,
+// para ninguem gastar a cota da PokeWallet apertando sem parar.
+function mensagemDeErro(e) {
+  const texto = String(e?.message || e);
+  if (/statement timeout|canceling statement/i.test(texto)) return "a coleta demorou demais; tente de novo em um minuto";
+  if (/failed to fetch|networkerror|load failed/i.test(texto)) return "sem conexão com o Supabase";
+  return texto;
 }
 
 document.getElementById("atualizar").addEventListener("click", async () => {
   const botao = document.getElementById("atualizar");
   const estado = document.getElementById("estado");
-  if (location.protocol === "file:") {
-    estado.replaceChildren(document.createTextNode("O botão só funciona pelo servidor: "));
-    const a = document.createElement("a");
-    a.href = ENDERECO_SERVIDOR; a.textContent = "abrir 127.0.0.1:8787";
-    estado.appendChild(a);
-    return;
-  }
   botao.disabled = true;
-  estado.textContent = "Coletando preços…";
+  estado.textContent = "Coletando preços… (uns 10 segundos)";
   try {
-    if (!LOCAL) { await atualizarPublicado(botao, estado); return; }
-    const r = await fetch("atualizar", { method: "POST", headers: { "X-Painel-Precos": "1" } });
-    const corpo = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(corpo.erro || `erro ${r.status}`);
-    estado.textContent = "Pronto, recarregando…";
-    location.reload();
+    const { data, error } = await nuvem.rpc("atualizar_precos");
+    if (error) throw new Error(error.message);
+    if (!data.ok) {
+      if (data.liberado_em) {
+        throw new Error(`já tem uma coleta recente; o botão libera às ${soHora.format(new Date(data.liberado_em))}`);
+      }
+      throw new Error(data.erro || "o Supabase recusou");
+    }
+    estado.textContent = "Carregando…";
+    await carregar();
+    estado.textContent = `Pronto: ${data.com_preco} de ${data.cartas} cartas com preço`;
   } catch (e) {
-    estado.textContent = `Não deu certo: ${e.message}`;
+    estado.textContent = `Não deu certo: ${mensagemDeErro(e)}`;
+  } finally {
     botao.disabled = false;
   }
 });
 
-montarTopo();
 render();
-if (nuvem) puxarDaNuvem();
+if (nuvem) {
+  document.getElementById("sub").textContent = "Carregando preços…";
+  carregar()
+    .then(() => { document.getElementById("atualizar").disabled = false; })
+    .catch(e => { document.getElementById("sub").textContent = `Não consegui ler os preços: ${mensagemDeErro(e)}`; });
+  puxarDaNuvem();
+} else {
+  document.getElementById("sub").textContent = "Não consegui carregar a biblioteca do Supabase; confira a conexão e recarregue.";
+}
 </script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 .venv/
 __pycache__/
 *.py[cod]
-# dados/ guarda estado e o painel gerado; o CSV de precos e o historico
-# (o "banco") e vai para o repositorio.
+# dados/ guarda o estado dos monitores; o CSV de precos e o historico antigo
+# (hoje o banco e o Supabase) e fica no repositorio como arquivo.
 dados/*
 !dados/precos-cartas.csv
 *.log

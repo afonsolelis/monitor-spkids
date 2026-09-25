@@ -8,9 +8,10 @@ Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas loja
 
 Roda a cada 15 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
 
-De hora em hora ele também grava o preço de todas as cartas das duas edições
-(188 cartas) num CSV e gera um painel HTML com a evolução, a tendência de cada
-carta e uma caixa para marcar as que você já tem. Veja [Preço das cartas](#preço-das-cartas).
+À parte, o Supabase grava de hora em hora o preço de todas as cartas das duas
+edições (191 cartas), e um painel no GitHub Pages mostra a evolução, a tendência
+de cada carta e uma caixa para marcar as que você já tem. Veja
+[Preço das cartas](#preço-das-cartas).
 
 ---
 
@@ -136,7 +137,22 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 
 ## Preço das cartas
 
-`precos_cartas.py` roda de hora em hora no GitHub Actions e cobre as duas edições:
+**https://afonsolelis.github.io/monitor-spkids/**
+
+A coleta roda dentro do Supabase (projeto `lwamaovuxcevsjfvtqhf`), sem nada
+nesta máquina nem no GitHub Actions. Tudo está em `supabase/coleta_precos.sql`:
+
+- `coleta.coletar_precos()` busca a cotação do dólar e os preços na PokéWallet e
+  grava em `public.precos`. O `pg_cron` roda de hora em hora (`17 * * * *`, job
+  `coleta-precos`).
+- O botão **Atualizar preços agora** chama `rpc('atualizar_precos')`: coleta na
+  hora (uns 5 a 15 segundos) e o painel recarrega os dados. Entre duas coletas
+  há uma espera de 5 minutos, porque o botão é aberto a quem tiver o link e a
+  PokéWallet grátis dá 100 pedidos por hora.
+- O GitHub Pages serve só a casca: ao abrir, o painel pede tudo de uma vez a
+  `rpc('painel_precos')`.
+
+Cobre as duas edições:
 
 | Edição | Sigla | Set na PokéWallet | Cartas |
 |---|---|---|---|
@@ -147,12 +163,10 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 Cards e a LigaPokemon respondem o desafio anti-robô do Cloudflare a qualquer
 acesso automatizado (a Liga desde setembro de 2026), e contornar isso seria
 burlar a proteção do site. A pokemontcg.io parou de publicar preços e sai do ar
-em março de 2027. A PokéWallet tem plano grátis (1.000 pedidos por dia) com os
-preços do TCGplayer; a busca devolve 100 cartas com preço por pedido, então
-cada coleta gasta uns 5.
-
-A chave vai na variável `POKEWALLET_KEY`: no GitHub, como secret do
-repositório; nesta máquina, em `~/.config/spkids/env`.
+em março de 2027. A PokéWallet tem plano grátis (100 pedidos por hora, 1.000
+por dia) com os preços do TCGplayer; a busca devolve 100 cartas com preço por
+pedido, então cada coleta gasta uns 5. A chave fica no Vault do Supabase
+(segredo `pokewallet`) e nunca sai do banco.
 
 **Os preços vêm em dólar e são convertidos.** Cada coleta pega a cotação do dia
 (AwesomeAPI, com a open.er-api.com de reserva) e grava em real. É preço de
@@ -160,60 +174,54 @@ mercado americano convertido, não o que se paga numa loja daqui: serve para a
 tendência, não para o bolso. As coletas até 23/09/2026 são da Liga, em real de
 loja brasileira, por isso a série de cada carta dá um degrau nessa data.
 
-### Arquivos
+### Tabelas
 
-| Caminho | Conteúdo |
+| Tabela | Conteúdo |
 |---|---|
-| `dados/precos-cartas.csv` | **versionado: é o banco do histórico.** Uma linha por carta por coleta: `coletado_em, colecao, numero, nome_en, nome_pt, preco_min, preco_medio, preco_max` |
-| `dados/precos-cartas.html` | o painel, regerado a cada coleta |
-| `dados/precos-cartas-meta.json` | cache com nome, imagem e link de cada carta; e o que deixa o `--so-html` regerar o painel sem rede |
-| `painel_precos.html` | modelo do painel (versionado). O script injeta os dados nele |
+| `precos` | uma linha por carta por coleta: `coletado_em, colecao, numero, preco_min, preco_medio, preco_max`, em reais |
+| `cartas` | catálogo: nome em inglês e em português (herdado da Liga), imagem, link do TCGplayer, quando foi vista por último |
+| `coletas` | cada coleta: quando, de onde (`cron`, `botao`, `manual`, `importado`), quantas cartas, cotação |
+| `cartas_marcadas` | as marcações de "tenho" (`supabase/cartas_marcadas.sql`) |
 
-O CSV só recebe linhas no fim, e o `.gitattributes` marca ele com
-`merge=union`. Se duas máquinas coletarem e fizerem commit, o `git pull` junta
-as linhas das duas em vez de dar conflito. O painel ordena por data ao ler.
+Visitante só lê `precos`, `cartas` e `coletas`; quem grava é a coleta. As
+funções internas ficam no schema `coleta`, fora da API.
 
-### Publicado no GitHub Pages
+Para o banco não passar dos 500 MB do plano grátis, o job `compacta-precos`
+reduz o que tem mais de 30 dias a um ponto por dia por carta (a média). O
+painel já mostra assim o que passou de 14 dias: hora a hora nas duas últimas
+semanas, um ponto por dia antes disso.
 
-**https://afonsolelis.github.io/monitor-spkids/**
+`dados/precos-cartas.csv` é o histórico da época em que a coleta rodava no
+GitHub Actions (23 e 24/09/2026). Está no banco desde a instalação e fica no
+repositório só como arquivo.
 
-Não há passo manual para publicar. O workflow `.github/workflows/painel.yml`
-roda de hora em hora (e a cada push que mexe no painel): coleta, faz commit do
-CSV quando há preço novo e publica o painel.
+### Acompanhar
 
-**Botão "Atualizar preços agora" no painel publicado.** Chama a função
-`atualizar_precos` do Supabase (`supabase/atualizar_precos.sql`), que dispara o
-workflow pela API do GitHub; a página acompanha e recarrega quando a coleta sai,
-em uns 2 minutos. Entre dois disparos há uma espera de 5 minutos, porque o botão
-é aberto a quem tiver o link. O token do GitHub fica no Vault do Supabase
-(`github_disparo`): fine-grained, só deste repositório, com permissão
-*Actions: Read and write*. Sem o botão, dá para rodar na hora pela aba
-Actions → Painel de preços → Run workflow.
-Por isso a coleta de preços não fica mais no cron desta máquina — as duas
-gravariam o mesmo CSV.
+O workflow `Coleta no Supabase` (`.github/workflows/coleta.yml`) confere uma
+vez por dia se a última coleta tem menos de 3 horas; se não tiver, falha e o
+GitHub manda e-mail. O acesso diário também conta como uso, e o plano grátis
+do Supabase pausa o projeto depois de 7 dias parado.
 
-**Marcações de "tenho" no Supabase.** Ficam na tabela `cartas_marcadas`
-(`supabase/cartas_marcadas.sql`), uma lista só e sem login: quem abre o painel
-vê as mesmas marcações e pode mexer nelas. O navegador guarda uma cópia; quando
-o Supabase responde, vale o que está lá. A tabela só aceita códigos de carta
-(`30C/001`, `30C-C/12`...), para não virar depósito de outra coisa.
+No SQL Editor do Supabase:
 
-### O painel local
-
-Abra em **http://127.0.0.1:8787**. O `instalar.sh` cria um serviço de usuário
-do systemd (`painel-precos.service`, sem sudo) que sobe o `servidor_painel.py`
-junto com a sessão. Por esse endereço, o botão **Atualizar preços agora** roda
-a coleta na hora e recarrega a página. Ele usa o mesmo `rodar_monitor.sh precos`
-do cron, com a mesma trava, então o botão e o cron nunca coletam juntos.
-
-Aberto direto do disco (`file://`), o painel funciona, mas o botão não: o
-navegador não deixa uma página rodar programas na máquina. O servidor só escuta
-em `127.0.0.1` e recusa pedidos de outros sites.
-
-```bash
-systemctl --user status painel-precos     # ver se está no ar
-systemctl --user restart painel-precos    # depois de atualizar o código
+```sql
+select * from public.coletas order by momento desc limit 10;       -- últimas coletas
+select * from cron.job_run_details order by start_time desc limit 10;  -- erros do cron
+select public.atualizar_precos();                                   -- coletar agora
 ```
+
+O `painel.yml` só publica o HTML no Pages quando `painel_precos.html` muda.
+
+### Instalar do zero
+
+1. No SQL Editor do Supabase, guardar a chave da PokéWallet (grátis em
+   pokewallet.io): `select vault.create_secret('<chave>', 'pokewallet');`
+2. Colar e rodar `supabase/cartas_marcadas.sql` e depois
+   `supabase/coleta_precos.sql`. O segundo instala as extensões `http` e
+   `pg_cron`, cria as tabelas e os jobs, importa o CSV do repositório e faz a
+   primeira coleta. Pode rodar de novo sem estragar nada.
+
+### O painel
 
 - Resumo no topo: quantas cartas você tem, quanto valem e quanto falta para completar.
 - Tabela com preço médio, mínimo, uma mini-linha da evolução e a tendência em
@@ -225,18 +233,14 @@ systemctl --user restart painel-precos    # depois de atualizar o código
   (24 horas, 7 dias ou todo o período). Só aparece com pelo menos 3 coletas
   cobrindo 2 horas. R² baixo significa que o preço oscila mais do que segue
   uma direção.
-- **Tenho**: a marcação fica salva no navegador (`localStorage`) e sobrevive
-  às atualizações do painel. Ela fica presa ao endereço e ao navegador: o que
-  foi marcado em `file://` não aparece em `127.0.0.1:8787`, nem em outro
-  computador. Use **Exportar marcações** e **Importar** para levar.
+- **Tenho**: fica no Supabase (tabela `cartas_marcadas`), uma lista só e sem
+  login: quem abre o painel vê as mesmas marcações e pode mexer nelas. O
+  navegador guarda uma cópia; quando o Supabase responde, vale o que está lá.
+  A tabela só aceita códigos de carta (`30C/001`, `30C-C/12`...), para não
+  virar depósito de outra coisa. **Exportar marcações** baixa uma cópia.
 
-O HTML embute o histórico: hora a hora nos últimos 14 dias, e um ponto por dia
-antes disso, para o arquivo não crescer sem limite.
-
-```bash
-.venv/bin/python precos_cartas.py              # coletar agora e regerar o painel
-.venv/bin/python precos_cartas.py --so-html    # só regerar o painel a partir do CSV
-```
+Aberto direto do disco (`file://`), o painel também funciona: ele lê do
+Supabase do mesmo jeito.
 
 ---
 
@@ -295,8 +299,6 @@ da máquina.
 | `~/.local/state/spkids/monitor.log` | log de cada execução |
 | `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
 | `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
-| `dados/precos-cartas.html` | painel gerado a partir do CSV |
-| `~/.local/state/spkids/precos.log` | log da coleta de preços |
 
 ## Limitação conhecida
 
