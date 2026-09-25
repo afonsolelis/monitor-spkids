@@ -183,16 +183,11 @@ painel. Para rodar na hora: aba Actions → Painel de preços → Run workflow.
 Por isso a coleta de preços não fica mais no cron desta máquina — as duas
 gravariam o mesmo CSV.
 
-**Marcações de "tenho" no Supabase.** Sem login, ficam só no navegador, como
-antes. Entrando com o e-mail (link mágico do Supabase Auth), vão para a tabela
-`cartas_tenho` e aparecem em qualquer aparelho; na primeira entrada, o que já
-estava marcado no navegador sobe junto. A chave publishable fica no HTML de
-propósito: quem protege os dados é o RLS de `supabase/cartas_tenho.sql`, que só
-deixa cada usuário ler e mexer nas próprias linhas. Visitante sem login não lê
-nem grava nada.
-
-Para o link do e-mail voltar ao painel, em Authentication → URL Configuration
-do Supabase o **Site URL** tem de ser o endereço do Pages acima.
+**Marcações de "tenho" no Supabase.** Ficam na tabela `cartas_marcadas`
+(`supabase/cartas_marcadas.sql`), uma lista só e sem login: quem abre o painel
+vê as mesmas marcações e pode mexer nelas. O navegador guarda uma cópia; quando
+o Supabase responde, vale o que está lá. A tabela só aceita códigos de carta
+(`30C/001`, `30C-C/12`...), para não virar depósito de outra coisa.
 
 ### O painel local
 

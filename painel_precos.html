@@ -72,9 +72,6 @@ h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em
 .acao { display: flex; align-items: center; gap: 10px; }
 .acao .estado { color: var(--ink-2); font-size: 13px; }
 [hidden] { display: none !important; }
-.conta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
-.conta form { display: flex; gap: 8px; flex-wrap: wrap; }
-.conta input[type="email"] { min-width: 220px; }
 button.primario { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 550; }
 button.primario:hover { filter: brightness(1.08); background: var(--acento); }
 button:disabled { opacity: 0.6; cursor: progress; }
@@ -93,7 +90,7 @@ button:disabled { opacity: 0.6; cursor: progress; }
 
 .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 .filtros label { color: var(--ink-2); font-size: 13px; display: flex; align-items: center; gap: 6px; }
-select, input[type="search"], input[type="email"], button {
+select, input[type="search"], button {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
 }
@@ -165,14 +162,6 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     <div>
       <h1>Cartas Pokémon 30 anos</h1>
       <p class="sub" id="sub"></p>
-      <div class="conta" id="conta" hidden>
-        <form id="login">
-          <input type="email" id="login-email" required placeholder="seu e-mail" aria-label="E-mail para entrar">
-          <button type="submit">Entrar para sincronizar</button>
-        </form>
-        <span id="conta-texto" role="status"></span>
-        <button type="button" id="sair" hidden>Sair</button>
-      </div>
     </div>
     <div class="acao">
       <span class="estado" id="estado" role="status"></span>
@@ -228,7 +217,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     cada coleta (mínimo, médio e máximo das ofertas de cada carta). A tendência é
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
     diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
-    navegador; entrando com o e-mail, sincronizam entre aparelhos. Use Exportar para
+    navegador e no Supabase, e aparecem iguais em qualquer aparelho. Use Exportar para
     guardar uma cópia.
   </p>
 </main>
@@ -258,63 +247,38 @@ function salvarPosse() {
 let posse = lerPosse();
 
 // ------------------------------------------------------------- supabase
-// Com login, as marcacoes tambem vao para a tabela cartas_tenho (ver
-// supabase/cartas_tenho.sql). A chave publishable pode ficar no HTML: quem
-// protege os dados e o RLS, que so deixa cada usuario ver e mexer nas suas.
-// Sem a biblioteca (offline, aberto do disco sem rede), fica so o localStorage.
+// As marcacoes ficam na tabela cartas_marcadas (ver supabase/cartas_marcadas.sql),
+// uma lista so, sem login. O localStorage vira copia: quando o Supabase
+// responde, e ele que vale. Sem a biblioteca (offline, aberto do disco), fica
+// so o localStorage.
 const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
 const SUPABASE_CHAVE = "sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ";
 const nuvem = window.supabase && location.protocol !== "file:"
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_CHAVE)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_CHAVE, { auth: { persistSession: false } })
   : null;
-let usuario = null;
 
-function avisarConta(texto) { document.getElementById("conta-texto").textContent = texto; }
+function avisarNuvem(texto) { document.getElementById("estado").textContent = texto; }
 
 async function marcarNaNuvem(ks, tem) {
-  if (!nuvem || !usuario || !ks.length) return;
+  if (!nuvem || !ks.length) return;
+  const tabela = nuvem.from("cartas_marcadas");
   const { error } = tem
-    ? await nuvem.from("cartas_tenho").upsert(ks.map(carta => ({ carta })), { ignoreDuplicates: true })
-    : await nuvem.from("cartas_tenho").delete().in("carta", ks);
-  if (error) avisarConta(`Não sincronizou: ${error.message}`);
+    ? await tabela.upsert(ks.map(carta => ({ carta })), { ignoreDuplicates: true })
+    : await tabela.delete().in("carta", ks);
+  if (error) avisarNuvem(`Não salvou no Supabase: ${error.message}`);
 }
 
 async function puxarDaNuvem() {
-  const { data, error } = await nuvem.from("cartas_tenho").select("carta");
-  if (error) { avisarConta(`Não sincronizou: ${error.message}`); return; }
-  const remotas = new Set(data.map(l => l.carta));
-  // Primeira entrada neste aparelho: o que so estava aqui sobe junto.
-  await marcarNaNuvem([...posse].filter(k => !remotas.has(k)), true);
-  for (const k of remotas) posse.add(k);
+  const { data, error } = await nuvem.from("cartas_marcadas").select("carta");
+  if (error) { avisarNuvem(`Supabase fora do ar; usando as marcações deste navegador`); return; }
+  if (!data.length && posse.size) {
+    // Tabela vazia: o que ja estava marcado neste navegador sobe.
+    await marcarNaNuvem([...posse], true);
+    return;
+  }
+  posse = new Set(data.map(l => l.carta));
   salvarPosse();
   render();
-}
-
-function mostrarConta() {
-  document.getElementById("login").hidden = !!usuario;
-  document.getElementById("sair").hidden = !usuario;
-  avisarConta(usuario ? `Sincronizado como ${usuario.email}` : "");
-}
-
-if (nuvem) {
-  document.getElementById("conta").hidden = false;
-  nuvem.auth.onAuthStateChange((evento, sessao) => {
-    const antes = usuario?.id;
-    usuario = sessao?.user ?? null;
-    mostrarConta();
-    // Fora do callback: chamar o Supabase aqui dentro trava a sessao.
-    if (usuario && usuario.id !== antes) setTimeout(puxarDaNuvem, 0);
-  });
-  document.getElementById("login").addEventListener("submit", async ev => {
-    ev.preventDefault();
-    const email = document.getElementById("login-email").value.trim();
-    avisarConta("Enviando…");
-    const { error } = await nuvem.auth.signInWithOtp({
-      email, options: { emailRedirectTo: location.origin + location.pathname },
-    });
-    avisarConta(error ? `Não enviou: ${error.message}` : "Link enviado — abra o e-mail neste aparelho.");
-  });
-  document.getElementById("sair").addEventListener("click", () => nuvem.auth.signOut());
 }
 
 // ------------------------------------------------------------ regressao
@@ -801,6 +765,7 @@ document.getElementById("atualizar").addEventListener("click", async () => {
 
 montarTopo();
 render();
+if (nuvem) puxarDaNuvem();
 </script>
 </body>
 </html>
