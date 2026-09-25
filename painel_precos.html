@@ -71,6 +71,10 @@ h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em
 .sub { color: var(--ink-2); margin: 0; }
 .acao { display: flex; align-items: center; gap: 10px; }
 .acao .estado { color: var(--ink-2); font-size: 13px; }
+[hidden] { display: none !important; }
+.conta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+.conta form { display: flex; gap: 8px; flex-wrap: wrap; }
+.conta input[type="email"] { min-width: 220px; }
 button.primario { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 550; }
 button.primario:hover { filter: brightness(1.08); background: var(--acento); }
 button:disabled { opacity: 0.6; cursor: progress; }
@@ -89,7 +93,7 @@ button:disabled { opacity: 0.6; cursor: progress; }
 
 .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 .filtros label { color: var(--ink-2); font-size: 13px; display: flex; align-items: center; gap: 6px; }
-select, input[type="search"], button {
+select, input[type="search"], input[type="email"], button {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
 }
@@ -161,10 +165,18 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     <div>
       <h1>Cartas Pokémon 30 anos</h1>
       <p class="sub" id="sub"></p>
+      <div class="conta" id="conta" hidden>
+        <form id="login">
+          <input type="email" id="login-email" required placeholder="seu e-mail" aria-label="E-mail para entrar">
+          <button type="submit">Entrar para sincronizar</button>
+        </form>
+        <span id="conta-texto" role="status"></span>
+        <button type="button" id="sair" hidden>Sair</button>
+      </div>
     </div>
     <div class="acao">
       <span class="estado" id="estado" role="status"></span>
-      <button type="button" class="primario" id="atualizar">Atualizar preços agora</button>
+      <button type="button" class="primario" id="atualizar" hidden>Atualizar preços agora</button>
     </div>
   </div>
   <div class="aviso" id="aviso" hidden></div>
@@ -216,11 +228,13 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     cada coleta (mínimo, médio e máximo das ofertas de cada carta). A tendência é
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
     diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
-    navegador — use Exportar para guardar uma cópia.
+    navegador; entrando com o e-mail, sincronizam entre aparelhos. Use Exportar para
+    guardar uma cópia.
   </p>
 </main>
 
 <script id="dados" type="application/json">/*__DADOS__*/null</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 const DADOS = JSON.parse(document.getElementById("dados").textContent);
@@ -242,6 +256,66 @@ function salvarPosse() {
   catch (e) { /* armazenamento bloqueado: a marcacao vale so nesta aba */ }
 }
 let posse = lerPosse();
+
+// ------------------------------------------------------------- supabase
+// Com login, as marcacoes tambem vao para a tabela cartas_tenho (ver
+// supabase/cartas_tenho.sql). A chave publishable pode ficar no HTML: quem
+// protege os dados e o RLS, que so deixa cada usuario ver e mexer nas suas.
+// Sem a biblioteca (offline, aberto do disco sem rede), fica so o localStorage.
+const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
+const SUPABASE_CHAVE = "sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ";
+const nuvem = window.supabase && location.protocol !== "file:"
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_CHAVE)
+  : null;
+let usuario = null;
+
+function avisarConta(texto) { document.getElementById("conta-texto").textContent = texto; }
+
+async function marcarNaNuvem(ks, tem) {
+  if (!nuvem || !usuario || !ks.length) return;
+  const { error } = tem
+    ? await nuvem.from("cartas_tenho").upsert(ks.map(carta => ({ carta })), { ignoreDuplicates: true })
+    : await nuvem.from("cartas_tenho").delete().in("carta", ks);
+  if (error) avisarConta(`Não sincronizou: ${error.message}`);
+}
+
+async function puxarDaNuvem() {
+  const { data, error } = await nuvem.from("cartas_tenho").select("carta");
+  if (error) { avisarConta(`Não sincronizou: ${error.message}`); return; }
+  const remotas = new Set(data.map(l => l.carta));
+  // Primeira entrada neste aparelho: o que so estava aqui sobe junto.
+  await marcarNaNuvem([...posse].filter(k => !remotas.has(k)), true);
+  for (const k of remotas) posse.add(k);
+  salvarPosse();
+  render();
+}
+
+function mostrarConta() {
+  document.getElementById("login").hidden = !!usuario;
+  document.getElementById("sair").hidden = !usuario;
+  avisarConta(usuario ? `Sincronizado como ${usuario.email}` : "");
+}
+
+if (nuvem) {
+  document.getElementById("conta").hidden = false;
+  nuvem.auth.onAuthStateChange((evento, sessao) => {
+    const antes = usuario?.id;
+    usuario = sessao?.user ?? null;
+    mostrarConta();
+    // Fora do callback: chamar o Supabase aqui dentro trava a sessao.
+    if (usuario && usuario.id !== antes) setTimeout(puxarDaNuvem, 0);
+  });
+  document.getElementById("login").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const email = document.getElementById("login-email").value.trim();
+    avisarConta("Enviando…");
+    const { error } = await nuvem.auth.signInWithOtp({
+      email, options: { emailRedirectTo: location.origin + location.pathname },
+    });
+    avisarConta(error ? `Não enviou: ${error.message}` : "Link enviado — abra o e-mail neste aparelho.");
+  });
+  document.getElementById("sair").addEventListener("click", () => nuvem.auth.signOut());
+}
 
 // ------------------------------------------------------------ regressao
 function regressao(pontos) {
@@ -413,6 +487,7 @@ function linhaCarta(c) {
   cb.addEventListener("change", () => {
     if (cb.checked) posse.add(c.k); else posse.delete(c.k);
     salvarPosse();
+    marcarNaNuvem([c.k], cb.checked);
     tr.classList.toggle("tenho", cb.checked);
     montarTiles();
     if (document.getElementById("f-posse").value) render();
@@ -681,8 +756,10 @@ document.getElementById("importar").addEventListener("change", async ev => {
   try {
     const lido = JSON.parse(await arquivo.text());
     const validas = new Set(cartas.map(c => c.k));
-    for (const k of lido.tenho || []) if (validas.has(k)) posse.add(k);
+    const novas = (lido.tenho || []).filter(k => validas.has(k) && !posse.has(k));
+    for (const k of novas) posse.add(k);
     salvarPosse(); render();
+    marcarNaNuvem(novas, true);
   } catch (e) {
     const aviso = document.getElementById("aviso");
     aviso.hidden = false; aviso.textContent = "Não consegui ler esse arquivo de marcações.";
@@ -693,7 +770,11 @@ document.getElementById("importar").addEventListener("change", async ev => {
 // ------------------------------------------------------------ atualizar
 // So funciona servido pelo servidor_painel.py; aberto do disco, o navegador
 // nao deixa a pagina rodar nada na maquina.
+// Publicado (GitHub Pages), o painel e regerado de hora em hora pelo Actions
+// e o botao some.
 const ENDERECO_SERVIDOR = "http://127.0.0.1:8787/";
+document.getElementById("atualizar").hidden =
+  !(location.protocol === "file:" || ["127.0.0.1", "localhost"].includes(location.hostname));
 document.getElementById("atualizar").addEventListener("click", async () => {
   const botao = document.getElementById("atualizar");
   const estado = document.getElementById("estado");

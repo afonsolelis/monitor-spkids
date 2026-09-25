@@ -56,9 +56,9 @@ echo "==> teste"
 "$REPO/rodar_monitor.sh" || true
 
 # -------------------------------------------------------------------- cron
-# Duas linhas: os monitores de loja a cada 15 minutos e a coleta de precos das
-# cartas de hora em hora. Cada uma e reconhecida pelo comando, entao rodar de
-# novo nao duplica e uma instalacao antiga (monitor de hora em hora) e atualizada.
+# Os monitores de loja a cada 15 minutos. A linha e reconhecida pelo comando,
+# entao rodar de novo nao duplica e uma instalacao antiga e atualizada. A coleta
+# de precos das cartas nao entra aqui: roda no GitHub Actions (painel.yml).
 instalar_cron() {  # $1 = linha desejada, $2 = trecho que identifica a linha, $3 = comentario
   local atual
   atual="$(crontab -l 2>/dev/null || true)"
@@ -79,8 +79,6 @@ echo "==> cron"
 MONITOR="$REPO/rodar_monitor.sh"
 instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
   "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
-instalar_cron "0 * * * * $MONITOR precos >> $LOG_DIR/precos.log 2>&1" \
-  "$MONITOR precos" "Preco das cartas Pokemon 30 anos (de hora em hora)."
 
 # ------------------------------------------------------ servidor do painel
 # Serve o painel em http://127.0.0.1:8787 com o botao "Atualizar precos agora".

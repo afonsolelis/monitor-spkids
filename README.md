@@ -136,7 +136,7 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 
 ## Preço das cartas
 
-`precos_cartas.py` roda de hora em hora (cron próprio) e cobre as duas edições:
+`precos_cartas.py` roda de hora em hora no GitHub Actions e cobre as duas edições:
 
 | Edição | Sigla | Set na API | Cartas |
 |---|---|---|---|
@@ -173,7 +173,28 @@ O CSV só recebe linhas no fim, e o `.gitattributes` marca ele com
 `merge=union`. Se duas máquinas coletarem e fizerem commit, o `git pull` junta
 as linhas das duas em vez de dar conflito. O painel ordena por data ao ler.
 
-### O painel
+### Publicado no GitHub Pages
+
+**https://afonsolelis.github.io/monitor-spkids/**
+
+O workflow `.github/workflows/painel.yml` roda de hora em hora (e a cada push que
+mexe no painel): coleta, faz commit do CSV quando há preço novo e publica o
+painel. Para rodar na hora: aba Actions → Painel de preços → Run workflow.
+Por isso a coleta de preços não fica mais no cron desta máquina — as duas
+gravariam o mesmo CSV.
+
+**Marcações de "tenho" no Supabase.** Sem login, ficam só no navegador, como
+antes. Entrando com o e-mail (link mágico do Supabase Auth), vão para a tabela
+`cartas_tenho` e aparecem em qualquer aparelho; na primeira entrada, o que já
+estava marcado no navegador sobe junto. A chave publishable fica no HTML de
+propósito: quem protege os dados é o RLS de `supabase/cartas_tenho.sql`, que só
+deixa cada usuário ler e mexer nas próprias linhas. Visitante sem login não lê
+nem grava nada.
+
+Para o link do e-mail voltar ao painel, em Authentication → URL Configuration
+do Supabase o **Site URL** tem de ser o endereço do Pages acima.
+
+### O painel local
 
 Abra em **http://127.0.0.1:8787**. O `instalar.sh` cria um serviço de usuário
 do systemd (`painel-precos.service`, sem sudo) que sobe o `servidor_painel.py`
