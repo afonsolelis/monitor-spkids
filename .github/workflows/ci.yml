@@ -48,14 +48,15 @@ jobs:
         run: |
           set -euo pipefail
           # Branch nova ou disparo manual: sem "antes", confere so o ultimo.
+          # Array para passar "<sha> -1" como dois argumentos sem word splitting.
           if [ -z "${ANTES:-}" ] || [ "$ANTES" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
-            faixa="$DEPOIS -1"
+            faixa=("$DEPOIS" -1)
           else
-            faixa="$ANTES..$DEPOIS"
+            faixa=("$ANTES..$DEPOIS")
           fi
           falhas=0
-          for c in $(git rev-list --no-merges $faixa); do
+          for c in $(git rev-list --no-merges "${faixa[@]}"); do
             git log -1 --format=%B "$c" > /tmp/msg
             if ! .githooks/commit-msg /tmp/msg 2>/tmp/erro; then
               echo "::error::$(git log -1 --format='%h %s' "$c")"
@@ -64,7 +65,7 @@ jobs:
             fi
           done
           [ "$falhas" -eq 0 ] || exit 1
-          echo "commits ok: $(git rev-list --no-merges --count $faixa)"
+          echo "commits ok: $(git rev-list --no-merges --count "${faixa[@]}")"
 
   segredos:
     name: Segredos (gitleaks)
