@@ -27,6 +27,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     env:
       TZ: America/Sao_Paulo
+      POKEWALLET_KEY: ${{ secrets.POKEWALLET_KEY }}
     steps:
       - uses: actions/checkout@v4
 

@@ -138,27 +138,27 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 
 `precos_cartas.py` roda de hora em hora no GitHub Actions e cobre as duas edições:
 
-| Edição | Sigla | Set na API | Cartas |
+| Edição | Sigla | Set na PokéWallet | Cartas |
 |---|---|---|---|
-| Celebração de 30 Anos | `30C` | `me55` | 161 |
-| Cartas Clássicas (Classic Collection) | `30C-C` | `me55c` | 30 |
+| Celebração de 30 Anos | `30C` | `24722` | 161 |
+| Cartas Clássicas (Classic Collection) | `30C-C` | `24837` | 30 |
 
-**Fonte: a API pública pokemontcg.io.** As duas lojas brasileiras ficaram
-inviáveis: a MYP Cards sempre bloqueou acesso automatizado com o desafio
-anti-robô do Cloudflare, e a LigaPokemon passou a fazer o mesmo (403 em
-setembro de 2026). Contornar esse bloqueio seria burlar a proteção do site.
-A pokemontcg.io é pública, documentada e entrega as duas edições com imagem e
-preços do TCGplayer.
+**Fonte: a API da PokéWallet.** As lojas brasileiras ficaram inviáveis: a MYP
+Cards e a LigaPokemon respondem o desafio anti-robô do Cloudflare a qualquer
+acesso automatizado (a Liga desde setembro de 2026), e contornar isso seria
+burlar a proteção do site. A pokemontcg.io parou de publicar preços e sai do ar
+em março de 2027. A PokéWallet tem plano grátis (1.000 pedidos por dia) com os
+preços do TCGplayer; a busca devolve 100 cartas com preço por pedido, então
+cada coleta gasta uns 5.
+
+A chave vai na variável `POKEWALLET_KEY`: no GitHub, como secret do
+repositório; nesta máquina, em `~/.config/spkids/env`.
 
 **Os preços vêm em dólar e são convertidos.** Cada coleta pega a cotação do dia
-na AwesomeAPI e grava em real, para o histórico continuar comparável com o que
-a Liga já tinha gravado. É preço de mercado americano convertido, não o que se
-paga numa loja daqui: serve para a tendência, não para o bolso.
-
-**Ainda sem preço.** A API já lista as 191 cartas, mas o TCGplayer ainda não
-publicou preço para estas edições, lançadas em 16/09/2026 — a coleta grava
-`0 com preco` e deixa o CSV intacto até os preços saírem. O painel continua
-mostrando o histórico em real já coletado.
+(AwesomeAPI, com a open.er-api.com de reserva) e grava em real. É preço de
+mercado americano convertido, não o que se paga numa loja daqui: serve para a
+tendência, não para o bolso. As coletas até 23/09/2026 são da Liga, em real de
+loja brasileira, por isso a série de cada carta dá um degrau nessa data.
 
 ### Arquivos
 

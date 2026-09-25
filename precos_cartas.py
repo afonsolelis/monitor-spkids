@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Historico de preco das cartas da colecao Pokemon 30 anos.
 
-A cada execucao le o preco de todas as cartas das duas edicoes na API publica
-pokemontcg.io e acrescenta uma linha por carta no CSV. Depois gera um HTML (sem
+A cada execucao le o preco de todas as cartas das duas edicoes na API da
+PokeWallet e acrescenta uma linha por carta no CSV. Depois gera um HTML (sem
 servidor, abre direto do disco) com a evolucao de cada carta, a tendencia por
 regressao linear e uma caixa para marcar as cartas que voce ja tem.
 
 Fonte: a MYP Cards e a LigaPokemon seriam as primeiras escolhas, por serem
 lojas brasileiras, mas as duas passaram a responder o desafio anti-robo do
 Cloudflare a qualquer acesso automatizado; contornar isso seria burlar a
-protecao do site. A pokemontcg.io e publica, documentada e nao tem desafio:
-entrega carta a carta com os precos do TCGplayer.
+protecao do site. A pokemontcg.io, a seguinte, parou de publicar precos (e
+sai do ar em marco de 2027). A PokeWallet tem API documentada, plano gratis
+(1.000 pedidos por dia, chave em POKEWALLET_KEY) e os precos do TCGplayer; a
+busca devolve 100 cartas com preco por pedido, entao a coleta toda sao ~5.
 
 Os precos do TCGplayer sao em dolar. Para o historico continuar comparavel com
 o que ja foi coletado em real, cada coleta converte pela cotacao do dia
@@ -26,6 +28,8 @@ import argparse
 import csv
 import json
 import logging
+import os
+import re
 import sys
 import time
 from collections import defaultdict
@@ -40,7 +44,13 @@ from monitor_spkids import criar_sessao
 
 log = logging.getLogger("precos")
 
-API = "https://api.pokemontcg.io/v2/cards"
+API = "https://api.pokewallet.io/search"
+# A listagem da edicao (/sets/:id) vem sem preco no plano gratis; a busca vem
+# com. O termo pega tambem a edicao japonesa e produtos lacrados, que o filtro
+# por set_id e product_type descarta.
+BUSCA = "30th Celebration"
+POR_PAGINA = 100
+IMAGEM = "https://tcgplayer-cdn.tcgplayer.com/product/{}_400w.jpg"
 COTACAO = "https://economia.awesomeapi.com.br/last/USD-BRL"
 # A AwesomeAPI responde 429 aos IPs compartilhados do GitHub Actions; esta e a
 # reserva (atualiza uma vez por dia, o que basta para a tendencia).
@@ -51,17 +61,26 @@ HTML_PADRAO = REPO / "dados" / "precos-cartas.html"
 META_PADRAO = REPO / "dados" / "precos-cartas-meta.json"
 MODELO = REPO / "painel_precos.html"
 
-# (sigla, id da edicao na API, nome para exibir). A sigla e a mesma que a
+# (sigla, set_id na PokeWallet, nome para exibir). A sigla e a mesma que a
 # LigaPokemon usava, para as linhas ja gravadas no CSV continuarem casando com
 # as novas.
 EDICOES = (
-    ("30C", "me55", "Celebração de 30 Anos"),
-    ("30C-C", "me55c", "Cartas Clássicas"),
+    ("30C", "24722", "Celebração de 30 Anos"),
+    ("30C-C", "24837", "Cartas Clássicas"),
 )
 
-# A variante vale mais que a outra na hora de escolher o preco: para as cartas
-# desta colecao a holografica e a que as lojas anunciam.
-VARIANTES = ("holofoil", "reverseHolofoil", "normal", "1stEditionHolofoil", "unlimitedHolofoil")
+# A Classic Collection reimprime cartas antigas com o numero original, e tres
+# pares se repetem. A Liga separava com letra; a PokeWallet traz o numero
+# completo (numero/total da edicao original), que resolve.
+NUMEROS_REPETIDOS = {
+    ("30C-C", "11/101"): "011b",   # Genesect-EX (Metagross e 11/113)
+    ("30C-C", "106/160"): "106b",  # M Gardevoir-EX (Palkia LV.X e 106/106)
+    ("30C-C", "106/105"): "106c",  # Shining Celebi
+}
+
+# A variante que vale na hora de escolher o preco: misturar daria uma media
+# sem sentido, porque a holografica custa varias vezes a normal.
+VARIANTES = ("Holofoil", "Reverse Holofoil", "Normal")
 
 # A API cai com 500/502 de vez em quando e volta sozinha na tentativa seguinte.
 TENTATIVAS = 4
@@ -119,22 +138,21 @@ def cotacao_dolar(sessao: requests.Session) -> float:
     return valor
 
 
-def _numero(bruto: str) -> str:
-    """'1' -> '001': o CSV antigo guarda o numero com tres digitos."""
+def _numero(sigla: str, completo: str) -> str:
+    """'58/102' -> '058': o CSV antigo guarda o numero com tres digitos."""
+    if (sigla, completo) in NUMEROS_REPETIDOS:
+        return NUMEROS_REPETIDOS[(sigla, completo)]
+    bruto = completo.split("/")[0]
     return bruto.zfill(3) if bruto.isdigit() else bruto
 
 
 def _precos_da_carta(carta: dict[str, Any], dolar: float) -> dict[str, float | None]:
-    """Menor, medio e maior preco da carta, em reais.
-
-    A API traz um bloco por variante (holografica, normal...). Pegamos a
-    primeira variante conhecida que tenha preco: misturar variantes daria uma
-    media sem sentido, porque a holografica custa varias vezes a normal.
-    """
-    precos = (carta.get("tcgplayer") or {}).get("prices") or {}
+    """Menor, medio e maior preco da carta no TCGplayer, em reais."""
+    precos = (carta.get("tcgplayer") or {}).get("prices") or []
+    por_variante = {p.get("sub_type_name"): p for p in precos if isinstance(p, dict)}
     escolhida = next(
-        (precos[v] for v in VARIANTES if isinstance(precos.get(v), dict)),
-        next((v for v in precos.values() if isinstance(v, dict)), {}),
+        (por_variante[v] for v in VARIANTES if v in por_variante),
+        precos[0] if precos else {},
     )
 
     def reais(campo: str) -> float | None:
@@ -142,40 +160,59 @@ def _precos_da_carta(carta: dict[str, Any], dolar: float) -> dict[str, float | N
         return round(valor * dolar, 2) if valor is not None else None
 
     return {
-        "preco_min": reais("low"),
-        "preco_medio": reais("market") or reais("mid"),
-        "preco_max": reais("high"),
+        "preco_min": reais("low_price"),
+        "preco_medio": reais("market_price") or reais("mid_price"),
+        "preco_max": reais("high_price"),
     }
 
 
-def baixar_edicao(
-    sessao: requests.Session, sigla: str, set_id: str, dolar: float
-) -> list[dict[str, Any]]:
-    dados = _insistir(
-        sessao,
-        API,
-        params={"q": f'set.id:"{set_id}"', "pageSize": 250},
-        headers={"Accept": "application/json"},
-        timeout=60.0,
-    )
-    cartas = []
-    for c in dados.get("data", []):
-        cartas.append(
-            {
-                "colecao": sigla,
-                "numero": _numero(str(c.get("number", ""))),
-                "nome_en": c.get("name", ""),
-                # A API so tem o nome em ingles; o nome em portugues vem do que
-                # a Liga ja gravou no CSV, quando gravou.
-                "nome_pt": "",
-                **_precos_da_carta(c, dolar),
-                "imagem": (c.get("images") or {}).get("small", ""),
-                "url": (c.get("tcgplayer") or {}).get("url", ""),
-            }
+def buscar_cartas(sessao: requests.Session, chave: str) -> list[dict[str, Any]]:
+    """Todas as paginas da busca, com preco."""
+    resultados: list[dict[str, Any]] = []
+    pagina, paginas = 1, 1
+    while pagina <= paginas:
+        dados = _insistir(
+            sessao,
+            API,
+            params={"q": BUSCA, "limit": POR_PAGINA, "page": pagina},
+            headers={"X-API-Key": chave, "Accept": "application/json"},
+            timeout=60.0,
         )
-    com_preco = sum(1 for c in cartas if c["preco_medio"] is not None)
-    log.info("%s: %d cartas, %d com preco", sigla, len(cartas), com_preco)
-    return cartas
+        resultados += dados.get("results") or []
+        paginas = (dados.get("pagination") or {}).get("total_pages") or 1
+        pagina += 1
+    return resultados
+
+
+def cartas_da_edicao(
+    resultados: list[dict[str, Any]], sigla: str, set_id: str, dolar: float
+) -> list[dict[str, Any]]:
+    cartas: dict[str, dict[str, Any]] = {}
+    for c in resultados:
+        info = c.get("card_info") or {}
+        if str(info.get("set_id")) != set_id or info.get("product_type") != "card":
+            continue
+        if not info.get("card_number"):  # "Code Card" do booster, nao e carta
+            continue
+        numero = _numero(sigla, str(info.get("card_number", "")))
+        url = (c.get("tcgplayer") or {}).get("url", "")
+        produto = url.rstrip("/").rsplit("/", 1)[-1] if url else ""
+        cartas[numero] = {
+            "colecao": sigla,
+            "numero": numero,
+            # Algumas vem com o numero no nome ("Mew ex - 066/128").
+            "nome_en": re.sub(r"\s+-\s+\S+/\S+$", "", info.get("name", "")),
+            # A API so tem o nome em ingles; o nome em portugues vem do que
+            # a Liga ja gravou no CSV, quando gravou.
+            "nome_pt": "",
+            **_precos_da_carta(c, dolar),
+            "imagem": IMAGEM.format(produto) if produto.isdigit() else "",
+            "url": url,
+        }
+    lista = sorted(cartas.values(), key=lambda c: c["numero"])
+    com_preco = sum(1 for c in lista if c["preco_medio"] is not None)
+    log.info("%s: %d cartas, %d com preco", sigla, len(lista), com_preco)
+    return lista
 
 
 # ---------------------------------------------------------------------- CSV
@@ -197,7 +234,7 @@ def gravar_csv(caminho: Path, momento: str, cartas: list[dict[str, Any]]) -> Non
 def nomes_pt(caminho: Path) -> dict[str, str]:
     """Nome em portugues por carta, herdado das coletas antigas da Liga.
 
-    A pokemontcg.io so tem o nome em ingles, e o painel mostra os dois.
+    A PokeWallet so tem o nome em ingles, e o painel mostra os dois.
     """
     nomes: dict[str, str] = {}
     with caminho.open(newline="", encoding="utf-8") as arquivo:
@@ -312,7 +349,7 @@ def gerar_html(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="precos_cartas",
-        description="Grava o preco das cartas Pokemon 30 anos (pokemontcg.io) e gera o painel HTML.",
+        description="Grava o preco das cartas Pokemon 30 anos (PokeWallet) e gera o painel HTML.",
     )
     parser.add_argument("--csv", type=Path, default=CSV_PADRAO, help="arquivo do historico")
     parser.add_argument("--html", type=Path, default=HTML_PADRAO, help="painel gerado")
@@ -337,14 +374,25 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         cartas = ler_meta(args.meta)
     else:
+        chave = os.environ.get("POKEWALLET_KEY", "")
+        if not chave:
+            log.error("defina POKEWALLET_KEY no ambiente (chave gratis em pokewallet.io)")
+            return 1
         with criar_sessao() as sessao:
             try:
                 dolar = cotacao_dolar(sessao)
-                for sigla, set_id, _ in EDICOES:
-                    cartas += baixar_edicao(sessao, sigla, set_id, dolar)
+                resultados = buscar_cartas(sessao, chave)
             except (requests.RequestException, ValueError) as erro:
-                log.error("falha ao consultar a pokemontcg.io: %s", erro)
+                log.error("falha ao consultar a PokeWallet: %s", erro)
                 return 1
+        for sigla, set_id, _ in EDICOES:
+            da_edicao = cartas_da_edicao(resultados, sigla, set_id, dolar)
+            if not da_edicao:
+                # A busca mudou de formato ou de nome: gravar so metade das
+                # cartas deixaria buracos no historico sem ninguem notar.
+                log.error("%s: nenhuma carta na busca; nada gravado", sigla)
+                return 1
+            cartas += da_edicao
 
     if not cartas:
         log.error("nenhuma carta encontrada; nada gravado")
@@ -359,7 +407,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.so_html:
         gravar_meta(args.meta, cartas)
         # Sem preco nenhum nao ha o que guardar, e uma coleta vazia so sujaria
-        # o historico: o TCGplayer ainda nao publicou estas edicoes.
+        # o historico.
         if com_preco:
             gravar_csv(args.csv, agora.isoformat(), cartas)
             log.info("%d precos gravados em %s", com_preco, args.csv)

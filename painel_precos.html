@@ -213,7 +213,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     </table>
   </div>
   <p class="rodape">
-    Preços do TCGplayer pela API pokemontcg.io, convertidos de dólar para real pela cotação de
+    Preços do TCGplayer pela API da PokéWallet, convertidos de dólar para real pela cotação de
     cada coleta (mínimo, médio e máximo das ofertas de cada carta). A tendência é
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
     diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
@@ -338,7 +338,7 @@ function montarTopo() {
   const sub = document.getElementById("sub");
   if (!DADOS) { sub.textContent = "Sem dados — rode precos_cartas.py"; return; }
   const gerado = new Date(DADOS.gerado_em);
-  sub.textContent = `TCGplayer (pokemontcg.io) · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
+  sub.textContent = `TCGplayer (PokéWallet) · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
   if (DADOS.coletas < 3) {
     const aviso = document.getElementById("aviso");
     aviso.hidden = false;
