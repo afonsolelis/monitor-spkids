@@ -57,9 +57,13 @@ O `instalar.sh` liga `git config core.hooksPath .githooks`:
 |---|---|
 | `pre-commit` | commit fora da `main`; segredo no diff (chave `pk_live_`, URL do Postgres com senha, chave secreta do Supabase) |
 | `commit-msg` | mensagem fora do Conventional Commits ou com primeira linha > 72 caracteres |
-| `pre-push` | push para qualquer ref remota que não seja a `main` |
+| `pre-push` | push para qualquer ref remota que não seja a `main`; push que mexe no painel com a regressão visual falhando |
 
 Não contornar com `--no-verify`. Se um hook recusou, corrija a causa.
+
+Depois do push, o `ci.yml` repete as checagens no GitHub (mensagens do push,
+gitleaks no histórico, ruff, shellcheck, actionlint) e o agente `devops`
+analisa o resultado com `scripts/analisar_push.sh`.
 
 ## Segredos
 
@@ -78,7 +82,9 @@ O repositório é **público**. Nunca vão para o git nem para a saída de coman
 | `painel_precos.html` | `npm run test:visual` e peça a revisão do agente `ux` |
 | `supabase/*.sql` | o script inteiro no banco (`psql -1 -v ON_ERROR_STOP=1 -f`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
 | `monitor_*.py` | `.venv/bin/python -m py_compile monitor_*.py` e uma execução com `--sem-estado` |
-| `*.sh` | `bash -n` no arquivo |
+| `*.sh`, `.githooks/*` | `bash -n` e `shellcheck` |
+| `.github/workflows/*` | `actionlint` |
+| `monitor_*.py` (lint) | `ruff check monitor_*.py` (config em `ruff.toml`) |
 
 Mudança intencional no visual: atualize as referências com
 `npm run test:visual:atualizar` **no mesmo commit** da mudança, e só depois de
@@ -90,9 +96,11 @@ olhar as imagens novas.
 |---|---|
 | [`dev`](.agents/dev.md) | implementar, corrigir ou refatorar qualquer parte do projeto |
 | [`ux`](.agents/ux.md) | revisar pixel a pixel toda mudança visível no painel, com o Playwright |
+| [`devops`](.agents/devops.md) | analisar todo push (CI, deploy, saúde do Supabase), investigar falhas e manter a esteira |
 
-Fluxo para mudança no painel: `dev` implementa → `ux` revisa → `dev` corrige o
-que o `ux` apontar → commit e push na main.
+Fluxo: `dev` implementa → `ux` revisa (se mexeu no painel) → `dev` corrige o
+que o `ux` apontar → commit e push na main → `devops` analisa o push e, se
+algo quebrou, corrige a esteira ou devolve para o `dev`.
 
 ## Estilo
 

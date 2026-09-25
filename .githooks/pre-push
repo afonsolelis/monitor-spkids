@@ -1,13 +1,35 @@
 #!/usr/bin/env bash
 # Trunk-based: o unico destino de push e a main. Branch nova no remoto e
 # recusada; apagar branch remota (limpeza) e permitido.
+#
+# Se o push mexe no painel ou nos testes visuais, roda a regressao visual
+# antes: ela e pixel perfect e depende das fontes desta maquina, por isso roda
+# aqui e nao no CI.
 set -euo pipefail
 
 zeros="0000000000000000000000000000000000000000"
-while read -r local_ref local_sha remote_ref remote_sha; do
+mudados=""
+while read -r _ local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zeros" ] && continue  # apagando no remoto
   if [ "$remote_ref" != "refs/heads/main" ]; then
     echo "push recusado: $remote_ref. Aqui tudo vai direto para a main (sem branch, sem PR)." >&2
     exit 1
   fi
+  if [ "$remote_sha" = "$zeros" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    mudados+="$(git diff-tree --no-commit-id --name-only -r "$local_sha")"$'\n'
+  else
+    mudados+="$(git diff --name-only "$remote_sha" "$local_sha")"$'\n'
+  fi
 done
+
+if printf '%s' "$mudados" | grep -Eq '^(painel_precos\.html|playwright\.config\.js|package(-lock)?\.json|tests/visual/)'; then
+  if [ ! -d node_modules/@playwright/test ]; then
+    echo "push recusado: o painel mudou e o Playwright nao esta instalado (rode ./instalar.sh)." >&2
+    exit 1
+  fi
+  echo "==> painel mudou: rodando a regressao visual (npm run test:visual)"
+  if ! npm run --silent test:visual -- --reporter=line; then
+    echo "push recusado: a regressao visual falhou. Veja: npm run test:visual:relatorio" >&2
+    exit 1
+  fi
+fi

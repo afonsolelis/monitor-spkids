@@ -304,8 +304,16 @@ da máquina.
 
 Regras do repositório (git trunk-based direto na `main`, Conventional Commits,
 segredos, o que rodar antes de commitar) no [AGENTS.md](AGENTS.md). Os agentes
-`dev` e `ux` ficam em [`.agents/`](.agents/) e o Claude Code os encontra por
-`.claude/agents`.
+`dev`, `ux` e `devops` ficam em [`.agents/`](.agents/) e o Claude Code os
+encontra por `.claude/agents`.
+
+A cada push, o workflow `CI` confere as mensagens (Conventional Commits),
+procura segredo no histórico (gitleaks) e roda ruff, shellcheck e actionlint.
+Para ver o resultado de um push, o deploy do Pages e a saúde do Supabase:
+
+```bash
+scripts/analisar_push.sh          # o último commit da main
+```
 
 ```bash
 npm run test:visual             # regressão visual pixel a pixel do painel
