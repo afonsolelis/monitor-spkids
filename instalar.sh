@@ -58,7 +58,7 @@ echo "==> teste"
 # -------------------------------------------------------------------- cron
 # Os monitores de loja a cada 15 minutos. A linha e reconhecida pelo comando,
 # entao rodar de novo nao duplica e uma instalacao antiga e atualizada. A coleta
-# de precos das cartas nao entra aqui: roda no GitHub Actions (painel.yml).
+# de precos das cartas nao entra aqui: roda no pg_cron do Supabase.
 instalar_cron() {  # $1 = linha desejada, $2 = trecho que identifica a linha, $3 = comentario
   local atual
   atual="$(crontab -l 2>/dev/null || true)"
@@ -80,34 +80,17 @@ MONITOR="$REPO/rodar_monitor.sh"
 instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
   "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
 
-# ------------------------------------------------------ servidor do painel
-# Serve o painel em http://127.0.0.1:8787 com o botao "Atualizar precos agora".
-# Servico de usuario do systemd: sobe junto com a sessao, sem sudo.
-if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
-  echo "==> servidor do painel"
-  PY_SERV="$REPO/.venv/bin/python"
-  [ -x "$PY_SERV" ] || PY_SERV="$(command -v python3)"
-  mkdir -p "$HOME/.config/systemd/user"
-  cat > "$HOME/.config/systemd/user/painel-precos.service" <<UNIT
-[Unit]
-Description=Painel de precos das cartas Pokemon 30 anos (http://127.0.0.1:8787)
-
-[Service]
-ExecStart=$PY_SERV $REPO/servidor_painel.py
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-UNIT
-  systemctl --user daemon-reload
-  systemctl --user enable --now painel-precos.service >/dev/null 2>&1 &&
-    systemctl --user restart painel-precos.service &&
-    echo "    rodando em http://127.0.0.1:8787"
-else
-  echo "==> sem systemd de usuario; suba o painel na mao: python3 $REPO/servidor_painel.py"
+# ---------------------------------------------- servidor do painel (antigo)
+# O painel agora vive no GitHub Pages e le do Supabase; o servidor local que
+# servia em 127.0.0.1:8787 saiu. Remove o servico de quem ja tinha instalado.
+if [ -f "$HOME/.config/systemd/user/painel-precos.service" ]; then
+  echo "==> removendo o servidor local do painel (painel-precos.service)"
+  systemctl --user disable --now painel-precos.service >/dev/null 2>&1 || true
+  rm -f "$HOME/.config/systemd/user/painel-precos.service"
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
 
 echo
 echo "pronto. falta so editar $ENV_DIR/env com a Senha de App do Gmail."
-echo "log: $LOG_DIR/monitor.log  |  precos: $LOG_DIR/precos.log"
-echo "painel de precos: http://127.0.0.1:8787"
+echo "log: $LOG_DIR/monitor.log"
+echo "painel de precos: https://afonsolelis.github.io/monitor-spkids/"
