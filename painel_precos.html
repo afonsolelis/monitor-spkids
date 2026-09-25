@@ -212,7 +212,8 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     </table>
   </div>
   <p class="rodape">
-    Preços da LigaPokemon (média, mínimo e máximo das ofertas de cada carta). A tendência é
+    Preços do TCGplayer pela API pokemontcg.io, convertidos de dólar para real pela cotação de
+    cada coleta (mínimo, médio e máximo das ofertas de cada carta). A tendência é
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
     diária dividida pelo preço médio da janela. As marcações de "tenho" ficam salvas neste
     navegador — use Exportar para guardar uma cópia.
@@ -299,7 +300,7 @@ function montarTopo() {
   const sub = document.getElementById("sub");
   if (!DADOS) { sub.textContent = "Sem dados — rode precos_cartas.py"; return; }
   const gerado = new Date(DADOS.gerado_em);
-  sub.textContent = `LigaPokemon · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
+  sub.textContent = `TCGplayer (pokemontcg.io) · atualizado em ${dataHora.format(gerado)} · ${DADOS.coletas} coleta${DADOS.coletas === 1 ? "" : "s"}`;
   if (DADOS.coletas < 3) {
     const aviso = document.getElementById("aviso");
     aviso.hidden = false;
@@ -501,7 +502,7 @@ function linhaDetalhe(c) {
   }
   const link = document.createElement("a");
   link.href = c.url; link.target = "_blank"; link.rel = "noopener noreferrer";
-  link.textContent = "Ver ofertas na Liga ↗";
+  link.textContent = "Ver ofertas no TCGplayer ↗";
   const p = document.createElement("p"); p.appendChild(link);
   lado.appendChild(p);
 
@@ -704,7 +705,7 @@ document.getElementById("atualizar").addEventListener("click", async () => {
     return;
   }
   botao.disabled = true;
-  estado.textContent = "Coletando preços na Liga…";
+  estado.textContent = "Coletando preços…";
   try {
     const r = await fetch("atualizar", { method: "POST", headers: { "X-Painel-Precos": "1" } });
     const corpo = await r.json().catch(() => ({}));

@@ -138,16 +138,27 @@ e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
 
 `precos_cartas.py` roda de hora em hora (cron próprio) e cobre as duas edições:
 
-| Edição | Sigla na Liga | Cartas |
-|---|---|---|
-| Celebração de 30 Anos | `30C` | 158 |
-| Cartas Clássicas (Classic Collection) | `30C-C` | 30 |
+| Edição | Sigla | Set na API | Cartas |
+|---|---|---|---|
+| Celebração de 30 Anos | `30C` | `me55` | 161 |
+| Cartas Clássicas (Classic Collection) | `30C-C` | `me55c` | 30 |
 
-**Fonte: LigaPokemon, não MYP Cards.** A MYP Cards bloqueia qualquer acesso
-automatizado com o desafio anti-robô do Cloudflare. Contornar esse bloqueio
-seria burlar a proteção do site, então o monitor usa a LigaPokemon. Ela tem as
-mesmas duas edições, com preços em reais, e a página de cada edição já traz um
-JSON com o preço mínimo, médio e máximo de cada carta.
+**Fonte: a API pública pokemontcg.io.** As duas lojas brasileiras ficaram
+inviáveis: a MYP Cards sempre bloqueou acesso automatizado com o desafio
+anti-robô do Cloudflare, e a LigaPokemon passou a fazer o mesmo (403 em
+setembro de 2026). Contornar esse bloqueio seria burlar a proteção do site.
+A pokemontcg.io é pública, documentada e entrega as duas edições com imagem e
+preços do TCGplayer.
+
+**Os preços vêm em dólar e são convertidos.** Cada coleta pega a cotação do dia
+na AwesomeAPI e grava em real, para o histórico continuar comparável com o que
+a Liga já tinha gravado. É preço de mercado americano convertido, não o que se
+paga numa loja daqui: serve para a tendência, não para o bolso.
+
+**Ainda sem preço.** A API já lista as 191 cartas, mas o TCGplayer ainda não
+publicou preço para estas edições, lançadas em 16/09/2026 — a coleta grava
+`0 com preco` e deixa o CSV intacto até os preços saírem. O painel continua
+mostrando o histórico em real já coletado.
 
 ### Arquivos
 
@@ -155,6 +166,7 @@ JSON com o preço mínimo, médio e máximo de cada carta.
 |---|---|
 | `dados/precos-cartas.csv` | **versionado: é o banco do histórico.** Uma linha por carta por coleta: `coletado_em, colecao, numero, nome_en, nome_pt, preco_min, preco_medio, preco_max` |
 | `dados/precos-cartas.html` | o painel, regerado a cada coleta |
+| `dados/precos-cartas-meta.json` | cache com nome, imagem e link de cada carta; e o que deixa o `--so-html` regerar o painel sem rede |
 | `painel_precos.html` | modelo do painel (versionado). O script injeta os dados nele |
 
 O CSV só recebe linhas no fim, e o `.gitattributes` marca ele com
