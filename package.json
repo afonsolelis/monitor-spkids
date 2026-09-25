@@ -1,0 +1,14 @@
+{
+  "name": "monitor-spkids",
+  "private": true,
+  "description": "Testes visuais do painel de precos (Playwright).",
+  "scripts": {
+    "test:visual": "playwright test",
+    "test:visual:atualizar": "playwright test --update-snapshots",
+    "test:visual:relatorio": "playwright show-report tests/visual/relatorio"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@supabase/supabase-js": "2.57.4"
+  }
+}

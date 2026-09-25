@@ -8,3 +8,6 @@ dados/*
 *.log
 env
 .env
+node_modules/
+tests/visual/resultados/
+tests/visual/relatorio/

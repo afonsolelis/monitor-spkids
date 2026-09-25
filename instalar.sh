@@ -51,6 +51,21 @@ else
   echo "    criado $ENV_DIR/env — EDITE e coloque a Senha de App"
 fi
 
+# ---------------------------------------------------------------- git/harness
+# Hooks do repositorio (trunk-based e Conventional Commits, ver AGENTS.md) e,
+# se houver Node, o Playwright dos testes visuais do painel.
+echo "==> hooks do git"
+git -C "$REPO" config core.hooksPath .githooks
+echo "    core.hooksPath = .githooks"
+if command -v npm >/dev/null 2>&1; then
+  echo "==> testes visuais (Playwright)"
+  if (cd "$REPO" && npm install --no-fund --no-audit --silent && npx playwright install chromium >/dev/null); then
+    echo "    pronto: npm run test:visual"
+  else
+    echo "    falhou; os monitores funcionam sem isso"
+  fi
+fi
+
 # ------------------------------------------------------------------- teste
 echo "==> teste"
 "$REPO/rodar_monitor.sh" || true

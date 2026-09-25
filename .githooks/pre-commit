@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Trunk-based: commit so na main. E barra segredo obvio antes de sair da maquina
+# (o repositorio e publico).
+set -euo pipefail
+
+ramo="$(git symbolic-ref --short -q HEAD || echo '(detached)')"
+if [ "$ramo" != "main" ]; then
+  echo "commit recusado: voce esta em '$ramo'. Aqui tudo e commitado direto na main." >&2
+  exit 1
+fi
+
+# Chave da PokeWallet, URL do Postgres com senha, chave secreta do Supabase.
+padrao='pk_live_[A-Za-z0-9]{8,}|postgres(ql)?://[^:@/ ]+:[^@/ ]+@|sb_secret_[A-Za-z0-9_-]{8,}|service_role'
+if git diff --cached -U0 --no-color | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eq "$padrao"; then
+  echo "commit recusado: parece haver um segredo no que vai ser commitado:" >&2
+  git diff --cached -U0 --no-color | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eo "$padrao" | sed 's/:[^@]*@/:***@/' | sort -u >&2
+  exit 1
+fi

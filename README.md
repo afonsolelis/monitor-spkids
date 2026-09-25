@@ -300,6 +300,23 @@ da máquina.
 | `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
 | `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
 
+## Desenvolvimento
+
+Regras do repositório (git trunk-based direto na `main`, Conventional Commits,
+segredos, o que rodar antes de commitar) no [AGENTS.md](AGENTS.md). Os agentes
+`dev` e `ux` ficam em [`.agents/`](.agents/) e o Claude Code os encontra por
+`.claude/agents`.
+
+```bash
+npm run test:visual             # regressão visual pixel a pixel do painel
+npm run test:visual:atualizar   # regravar as referências (mudança intencional)
+npm run test:visual:relatorio   # abrir o relatório com as diferenças
+```
+
+Os testes abrem `painel_precos.html` do disco com dados fixos
+(`tests/visual/fixtures/painel.json`) e toda a rede interceptada, em quatro
+perfis: desktop e celular, tema claro e escuro.
+
 ## Limitação conhecida
 
 O cron não recupera execução perdida: se a máquina estiver suspensa às 14h00,
