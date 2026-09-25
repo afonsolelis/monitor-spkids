@@ -56,6 +56,8 @@ conservador para mexer.
   por mês, ou quando pedido: `gh api repos/<dono>/<action>/releases/latest`
   para cada action, `npm outdated`, versões no `ci.yml`. Leia o changelog,
   atualize SHA e versão juntos, rode o actionlint (abaixo), commit `ci:`/`build:`.
+- **Runner fixo**: `runs-on: ubuntu-24.04`, nunca `ubuntu-latest` (o rótulo
+  troca de versão sozinho). Subir de versão é uma mudança deliberada, com teste.
 - **Timeouts e concorrência**: `timeout-minutes` em todo job; `concurrency`
   onde duas execuções não podem se sobrepor (deploy).
 - **Observabilidade**: toda falha precisa avisar alguém. Workflow que falha
