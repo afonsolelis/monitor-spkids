@@ -217,14 +217,43 @@ def procurar(
 
 
 # -------------------------------------------------------------------- estado
+# Na Render o cron job nao tem disco entre execucoes: com SPKIDS_REDIS_URL o
+# estado vai para o Key Value, na chave com o nome do arquivo. Sem ela, arquivo.
+def _redis() -> Any:
+    url = os.environ.get("SPKIDS_REDIS_URL", "")
+    if not url:
+        return None
+    import redis  # so e necessario na Render
+
+    return redis.Redis.from_url(url, socket_timeout=15)
+
+
 def carregar_estado(caminho: Path) -> dict[str, Any]:
-    if not caminho.exists():
-        return {}
     try:
+        cliente = _redis()
+        if cliente is not None:
+            bruto = cliente.get(f"spkids:{caminho.name}")
+            return json.loads(bruto) if bruto else {}
+        if not caminho.exists():
+            return {}
         return json.loads(caminho.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as erro:
+    except ValueError as erro:
         log.warning("estado ilegivel em %s (%s); tratando como primeira execucao", caminho, erro)
         return {}
+
+
+def gravar_estado(caminho: Path, dados: dict[str, Any]) -> None:
+    texto = json.dumps(
+        {"verificado_em": datetime.now().astimezone().isoformat(timespec="seconds"), **dados},
+        ensure_ascii=False,
+        indent=2,
+    )
+    cliente = _redis()
+    if cliente is not None:
+        cliente.set(f"spkids:{caminho.name}", texto)
+        return
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_text(texto, encoding="utf-8")
 
 
 def salvar_estado(
@@ -234,20 +263,14 @@ def salvar_estado(
     sitemap: list[str],
     alertados: set[str],
 ) -> None:
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    caminho.write_text(
-        json.dumps(
-            {
-                "verificado_em": datetime.now().astimezone().isoformat(timespec="seconds"),
-                "produtos": {str(p.id): p.nome for p in produtos},
-                "categorias": categorias,
-                "sitemap": sorted(sitemap),
-                "alertados": sorted(alertados),
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+    gravar_estado(
+        caminho,
+        {
+            "produtos": {str(p.id): p.nome for p in produtos},
+            "categorias": categorias,
+            "sitemap": sorted(sitemap),
+            "alertados": sorted(alertados),
+        },
     )
 
 

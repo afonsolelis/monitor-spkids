@@ -21,13 +21,11 @@ Codigo de saida 10 quando ha novidade, 0 quando nao ha, 1 em caso de erro.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -41,6 +39,7 @@ from monitor_spkids import (
     compilar,
     criar_sessao,
     enviar_email,
+    gravar_estado,
     notificar,
 )
 
@@ -149,21 +148,15 @@ def baixar_sitemap(sessao: requests.Session, timeout: float = 30.0) -> list[str]
 
 # -------------------------------------------------------------------- estado
 def salvar_estado(caminho: Path, produtos: list[Produto], sitemap: list[str]) -> None:
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    caminho.write_text(
-        json.dumps(
-            {
-                "verificado_em": datetime.now().astimezone().isoformat(timespec="seconds"),
-                "produtos": {
-                    p.id: {"nome": p.nome, "estoque": p.estoque, "preco": p.preco}
-                    for p in produtos
-                },
-                "sitemap": sorted(sitemap),
+    gravar_estado(
+        caminho,
+        {
+            "produtos": {
+                p.id: {"nome": p.nome, "estoque": p.estoque, "preco": p.preco}
+                for p in produtos
             },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+            "sitemap": sorted(sitemap),
+        },
     )
 
 
