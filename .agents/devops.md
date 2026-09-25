@@ -55,7 +55,7 @@ conservador para mexer.
 - **Atualizações**: sem Dependabot (ele abre PR, e aqui não há PR). Uma vez
   por mês, ou quando pedido: `gh api repos/<dono>/<action>/releases/latest`
   para cada action, `npm outdated`, versões no `ci.yml`. Leia o changelog,
-  atualize SHA e versão juntos, rode `actionlint`, commit `ci:`/`build:`.
+  atualize SHA e versão juntos, rode o actionlint (abaixo), commit `ci:`/`build:`.
 - **Timeouts e concorrência**: `timeout-minutes` em todo job; `concurrency`
   onde duas execuções não podem se sobrepor (deploy).
 - **Observabilidade**: toda falha precisa avisar alguém. Workflow que falha
@@ -69,10 +69,17 @@ conservador para mexer.
   vazamento: trocar o segredo primeiro (Vault, Supabase, PokéWallet), limpar
   depois.
 
-Antes de commitar mudança de esteira: `actionlint`,
-`shellcheck ./*.sh scripts/*.sh .githooks/*` (via `uvx --from actionlint-py`
-/ `uvx --from shellcheck-py` se não estiverem instalados) e, para hooks, um
-teste simulando a entrada do git. Depois do push, analise o próprio push.
+Antes de commitar mudança de esteira, com as mesmas versões do CI:
+
+```bash
+uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint
+uvx --from shellcheck-py==0.11.0.1 shellcheck ./*.sh scripts/*.sh .githooks/*
+```
+
+O `--with shellcheck-py` não é opcional: sem o shellcheck no PATH, o
+actionlint pula em silêncio a checagem dos blocos `run:` (foi assim que o
+SC2086 do `ci.yml` só apareceu no CI). Para hooks, teste também simulando a
+entrada do git. Depois do push, analise o próprio push.
 
 ## Relatório
 

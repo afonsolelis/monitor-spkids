@@ -83,7 +83,7 @@ O repositório é **público**. Nunca vão para o git nem para a saída de coman
 | `supabase/*.sql` | o script inteiro no banco (`psql -1 -v ON_ERROR_STOP=1 -f`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
 | `monitor_*.py` | `.venv/bin/python -m py_compile monitor_*.py` e uma execução com `--sem-estado` |
 | `*.sh`, `.githooks/*` | `bash -n` e `shellcheck` |
-| `.github/workflows/*` | `actionlint` |
+| `.github/workflows/*` | `uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint` (com o shellcheck junto, senão os blocos `run:` não são checados) |
 | `monitor_*.py` (lint) | `ruff check monitor_*.py` (config em `ruff.toml`) |
 
 Mudança intencional no visual: atualize as referências com
