@@ -118,7 +118,7 @@ class Produto:
     def na_categoria(self, chave: str) -> bool:
         """Aceita tanto o slug (`colecoes`) quanto o nome (`Coleções`)."""
         alvo = _sem_acento(chave)
-        return any(alvo == s or alvo == _sem_acento(n) for s, n in zip(self.slugs, self.categorias))
+        return any(alvo == s or alvo == _sem_acento(n) for s, n in zip(self.slugs, self.categorias, strict=False))
 
     def campos_de_busca(self, profundo: bool) -> str:
         partes = [self.nome, self.sku, *self.categorias]

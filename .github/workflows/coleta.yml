@@ -14,6 +14,7 @@ permissions: {}
 jobs:
   conferir:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       # Chave publicavel: a mesma que esta no painel, so le.
       SUPABASE_URL: https://lwamaovuxcevsjfvtqhf.supabase.co

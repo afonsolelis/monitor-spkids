@@ -1,0 +1,127 @@
+# Portao de qualidade de cada push. O projeto e trunk-based (AGENTS.md): nao ha
+# PR nem revisao antes do merge, entao a checagem acontece aqui, logo depois
+# do push, e o agente devops (.agents/devops.md) analisa o resultado.
+#
+# Os testes visuais do painel nao rodam aqui: sao pixel perfect e as
+# referencias dependem das fontes da maquina. Rodam no pre-push local.
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUFF: "0.16.9"
+  SHELLCHECK: "0.11.0.1"
+  ACTIONLINT: "1.7.12.25"
+  GITLEAKS: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+
+jobs:
+  trunk:
+    name: Trunk e Conventional Commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Só a main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::push em ${GITHUB_REF}. Aqui tudo vai direto para a main (sem branch, sem PR)."
+          exit 1
+
+      - name: Mensagens dos commits do push
+        env:
+          ANTES: ${{ github.event.before }}
+          DEPOIS: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # Branch nova ou disparo manual: sem "antes", confere so o ultimo.
+          if [ -z "${ANTES:-}" ] || [ "$ANTES" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
+            faixa="$DEPOIS -1"
+          else
+            faixa="$ANTES..$DEPOIS"
+          fi
+          falhas=0
+          for c in $(git rev-list --no-merges $faixa); do
+            git log -1 --format=%B "$c" > /tmp/msg
+            if ! .githooks/commit-msg /tmp/msg 2>/tmp/erro; then
+              echo "::error::$(git log -1 --format='%h %s' "$c")"
+              cat /tmp/erro
+              falhas=$((falhas + 1))
+            fi
+          done
+          [ "$falhas" -eq 0 ] || exit 1
+          echo "commits ok: $(git rev-list --no-merges --count $faixa)"
+
+  segredos:
+    name: Segredos (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Instala o gitleaks (checksum conferido)
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS}/gitleaks_${GITLEAKS}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+
+      # O historico inteiro: o repositorio e publico, e segredo antigo tambem vaza.
+      - run: ./gitleaks git --no-banner --redact --exit-code 1 .
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install "ruff==${RUFF}" "shellcheck-py==${SHELLCHECK}" "actionlint-py==${ACTIONLINT}"
+
+      - name: Python
+        run: |
+          python -m py_compile monitor_*.py
+          ruff check --output-format github monitor_*.py
+
+      - name: Shell
+        run: shellcheck ./*.sh scripts/*.sh .githooks/*
+
+      - name: Workflows
+        run: actionlint -color
+
+      - name: Painel e testes (sintaxe)
+        run: |
+          node --check playwright.config.js tests/visual/*.js
+          python - <<'PY'
+          import json, pathlib, re
+          html = pathlib.Path("painel_precos.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert scripts, "painel sem <script> inline"
+          pathlib.Path("/tmp/painel.js").write_text("\n".join(scripts), encoding="utf-8")
+          json.loads(pathlib.Path("tests/visual/fixtures/painel.json").read_text(encoding="utf-8"))
+          PY
+          node --check /tmp/painel.js
