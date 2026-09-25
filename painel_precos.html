@@ -732,13 +732,47 @@ document.getElementById("importar").addEventListener("change", async ev => {
 });
 
 // ------------------------------------------------------------ atualizar
-// So funciona servido pelo servidor_painel.py; aberto do disco, o navegador
-// nao deixa a pagina rodar nada na maquina.
-// Publicado (GitHub Pages), o painel e regerado de hora em hora pelo Actions
-// e o botao some.
+// Local (servidor_painel.py), o botao roda a coleta na maquina. Publicado
+// (GitHub Pages), pede ao Supabase que dispare o workflow do Actions (ver
+// supabase/atualizar_precos.sql) e recarrega quando a pagina nova sair. Aberto
+// do disco, o navegador nao deixa a pagina rodar nada na maquina.
 const ENDERECO_SERVIDOR = "http://127.0.0.1:8787/";
-document.getElementById("atualizar").hidden =
-  !(location.protocol === "file:" || ["127.0.0.1", "localhost"].includes(location.hostname));
+const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);
+document.getElementById("atualizar").hidden = !(location.protocol === "file:" || LOCAL || nuvem);
+
+async function geradoEmPublicado() {
+  const r = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: "no-store" });
+  const html = new DOMParser().parseFromString(await r.text(), "text/html");
+  return JSON.parse(html.getElementById("dados").textContent)?.gerado_em;
+}
+
+async function atualizarPublicado(botao, estado) {
+  const { data, error } = await nuvem.rpc("atualizar_precos");
+  if (error) throw new Error(error.message);
+  if (!data.ok) {
+    if (data.liberado_em) {
+      const hora = soHora.format(new Date(data.liberado_em));
+      throw new Error(`já tem uma coleta recente; o botão libera às ${hora}`);
+    }
+    throw new Error(data.erro || "o Supabase recusou");
+  }
+  // O Actions leva 1 a 2 minutos para coletar e publicar.
+  const antes = DADOS?.gerado_em;
+  const inicio = Date.now();
+  while (Date.now() - inicio < 6 * 60 * 1000) {
+    const passados = Math.round((Date.now() - inicio) / 1000);
+    estado.textContent = `Coletando no GitHub… ${passados}s (leva uns 2 minutos)`;
+    await new Promise(ok => setTimeout(ok, 15000));
+    const agora = await geradoEmPublicado().catch(() => antes);
+    if (agora && agora !== antes) {
+      estado.textContent = "Pronto, recarregando…";
+      location.replace(`${location.pathname}?v=${Date.now()}`);
+      return;
+    }
+  }
+  throw new Error("a coleta ainda não apareceu; recarregue daqui a pouco");
+}
+
 document.getElementById("atualizar").addEventListener("click", async () => {
   const botao = document.getElementById("atualizar");
   const estado = document.getElementById("estado");
@@ -752,6 +786,7 @@ document.getElementById("atualizar").addEventListener("click", async () => {
   botao.disabled = true;
   estado.textContent = "Coletando preços…";
   try {
+    if (!LOCAL) { await atualizarPublicado(botao, estado); return; }
     const r = await fetch("atualizar", { method: "POST", headers: { "X-Painel-Precos": "1" } });
     const corpo = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(corpo.erro || `erro ${r.status}`);

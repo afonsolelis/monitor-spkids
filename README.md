@@ -177,9 +177,18 @@ as linhas das duas em vez de dar conflito. O painel ordena por data ao ler.
 
 **https://afonsolelis.github.io/monitor-spkids/**
 
-O workflow `.github/workflows/painel.yml` roda de hora em hora (e a cada push que
-mexe no painel): coleta, faz commit do CSV quando há preço novo e publica o
-painel. Para rodar na hora: aba Actions → Painel de preços → Run workflow.
+Não há passo manual para publicar. O workflow `.github/workflows/painel.yml`
+roda de hora em hora (e a cada push que mexe no painel): coleta, faz commit do
+CSV quando há preço novo e publica o painel.
+
+**Botão "Atualizar preços agora" no painel publicado.** Chama a função
+`atualizar_precos` do Supabase (`supabase/atualizar_precos.sql`), que dispara o
+workflow pela API do GitHub; a página acompanha e recarrega quando a coleta sai,
+em uns 2 minutos. Entre dois disparos há uma espera de 5 minutos, porque o botão
+é aberto a quem tiver o link. O token do GitHub fica no Vault do Supabase
+(`github_disparo`): fine-grained, só deste repositório, com permissão
+*Actions: Read and write*. Sem o botão, dá para rodar na hora pela aba
+Actions → Painel de preços → Run workflow.
 Por isso a coleta de preços não fica mais no cron desta máquina — as duas
 gravariam o mesmo CSV.
 
