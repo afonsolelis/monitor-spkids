@@ -42,6 +42,9 @@ log = logging.getLogger("precos")
 
 API = "https://api.pokemontcg.io/v2/cards"
 COTACAO = "https://economia.awesomeapi.com.br/last/USD-BRL"
+# A AwesomeAPI responde 429 aos IPs compartilhados do GitHub Actions; esta e a
+# reserva (atualiza uma vez por dia, o que basta para a tendencia).
+COTACAO_RESERVA = "https://open.er-api.com/v6/latest/USD"
 REPO = Path(__file__).resolve().parent
 CSV_PADRAO = REPO / "dados" / "precos-cartas.csv"
 HTML_PADRAO = REPO / "dados" / "precos-cartas.html"
@@ -100,8 +103,16 @@ def _insistir(sessao: requests.Session, url: str, **kwargs: Any) -> dict[str, An
 
 def cotacao_dolar(sessao: requests.Session) -> float:
     """Quanto vale um dolar em reais agora."""
-    dados = _insistir(sessao, COTACAO)
-    valor = _preco(dados.get("USDBRL", {}).get("bid"))
+    try:
+        # Uma tentativa so: se falhar, a reserva resolve mais rapido que insistir.
+        resposta = sessao.get(COTACAO, timeout=15)
+        resposta.raise_for_status()
+        valor = _preco(resposta.json().get("USDBRL", {}).get("bid"))
+    except (requests.RequestException, ValueError) as erro:
+        log.warning("AwesomeAPI falhou (%s); usando a cotacao reserva", erro)
+        valor = None
+    if valor is None:
+        valor = _preco(_insistir(sessao, COTACAO_RESERVA).get("rates", {}).get("BRL"))
     if valor is None:
         raise ValueError("cotacao do dolar veio vazia")
     log.info("dolar a R$ %.2f", valor)
