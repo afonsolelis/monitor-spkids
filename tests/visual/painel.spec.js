@@ -16,6 +16,7 @@ const DADOS = fs.readFileSync(path.join(__dirname, "fixtures/painel.json"), "utf
 const SUPABASE_JS = fs.readFileSync(require.resolve("@supabase/supabase-js/dist/umd/supabase.js"), "utf8");
 const AGORA = new Date("2026-09-25T10:40:00Z");
 const MARCADAS = ["30C/001", "30C/150", "30C-C/149"];
+const ENCOMENDADAS = ["30C/002", "30C/004"];
 const IMAGEM = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="558"><rect width="400" height="558" fill="#9a9890"/></svg>`;
 
 async function abrir(page, { painel = "ok" } = {}) {
@@ -34,8 +35,9 @@ async function abrir(page, { painel = "ok" } = {}) {
     if (url.includes("/rpc/atualizar_precos")) {
       return json(JSON.stringify({ ok: false, liberado_em: "2026-09-25T10:45:00+00:00" }));
     }
-    if (url.includes("/cartas_marcadas")) {
-      if (rota.request().method() === "GET") return json(JSON.stringify(MARCADAS.map(carta => ({ carta }))));
+    for (const [tabela, lista] of [["/cartas_marcadas", MARCADAS], ["/cartas_encomendadas", ENCOMENDADAS]]) {
+      if (!url.includes(tabela)) continue;
+      if (rota.request().method() === "GET") return json(JSON.stringify(lista.map(carta => ({ carta }))));
       return rota.fulfill({ status: 201, body: "" });
     }
     return json(JSON.stringify({ message: "rota nao simulada" }), 404);
@@ -57,7 +59,32 @@ test("lista carregada", async ({ page }) => {
   // Nada pode vazar para o lado: sem rolagem horizontal em nenhuma largura.
   const vazamento = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(vazamento, "largura que sobra alem da tela").toBeLessThanOrEqual(0);
+  expect(await cortePelaTabela(page), "largura escondida pelo overflow da tabela").toBeLessThanOrEqual(0);
   await expect(page).toHaveScreenshot("lista.png");
+});
+
+// O .tabela tem overflow hidden: o que passar da largura some sem gerar
+// rolagem, entao a checagem de vazamento da pagina nao ve.
+function cortePelaTabela(page) {
+  return page.evaluate(() => {
+    const caixa = document.querySelector(".tabela");
+    return caixa.querySelector("table").scrollWidth - caixa.clientWidth;
+  });
+}
+
+test("tela de 320 px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await abrir(page);
+  expect(await cortePelaTabela(page), "largura escondida pelo overflow da tabela").toBeLessThanOrEqual(0);
+  for (const k of ["30C-C/149", "30C-C/106c"]) {
+    await page.locator("#f-edicao").selectOption("");
+    await page.locator('tr.carta[data-k="' + k + '"]').click();
+    await page.mouse.move(0, 0);
+    expect(await cortePelaTabela(page), `detalhe de ${k} cortado`).toBeLessThanOrEqual(0);
+    await page.locator('tr.carta[data-k="' + k + '"]').click();
+  }
+  await page.locator("#f-posse").selectOption("a-chegar");
+  await expect(page.locator(".tabela")).toHaveScreenshot("estreita-a-chegar.png");
 });
 
 test("detalhe da carta", async ({ page }) => {
@@ -74,6 +101,32 @@ test("filtro so as que tenho", async ({ page }) => {
   await page.locator("#f-posse").selectOption("tenho");
   await expect(page.locator("tr.carta")).toHaveCount(MARCADAS.length);
   await expect(page.locator(".tabela")).toHaveScreenshot("so-tenho.png");
+});
+
+test("filtro so as a chegar", async ({ page }) => {
+  await abrir(page);
+  await page.locator("#f-posse").selectOption("a-chegar");
+  await expect(page.locator("tr.carta")).toHaveCount(ENCOMENDADAS.length);
+  await expect(page.locator(".tabela")).toHaveScreenshot("so-a-chegar.png");
+});
+
+test("tenho apaga a encomenda", async ({ page }) => {
+  await abrir(page);
+  const linha = page.locator('tr.carta[data-k="30C/002"]');
+  const pedido = linha.getByRole("checkbox", { name: /^Encomendei/ });
+  await expect(pedido).toBeChecked();
+  await linha.getByRole("checkbox", { name: /^Tenho/ }).check();
+  await expect(pedido).not.toBeChecked();
+  await expect(pedido).toBeDisabled();
+  await expect(linha).toHaveClass(/tenho/);
+  await expect(page.locator("tr.detalhe")).toHaveCount(0);
+});
+
+test("filtro so as que faltam", async ({ page }) => {
+  await abrir(page);
+  await page.locator("#f-posse").selectOption("faltam");
+  for (const k of [...MARCADAS, ...ENCOMENDADAS]) await expect(page.locator(`tr.carta[data-k="${k}"]`)).toHaveCount(0);
+  await expect(page.locator('tr.carta[data-k="30C/003"]')).toHaveCount(1);
 });
 
 test("botao com coleta recente", async ({ page }) => {

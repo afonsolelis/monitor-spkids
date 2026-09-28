@@ -22,6 +22,7 @@
   --serie-2: #eb6834;
   --serie-1-wash: rgba(42,120,214,0.10);
   --acento: #2a78d6;
+  --encomenda: #b08600;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -39,6 +40,7 @@
     --serie-2: #d95926;
     --serie-1-wash: rgba(57,135,229,0.12);
     --acento: #3987e5;
+    --encomenda: #f2c230;
   }
 }
 :root[data-theme="dark"] {
@@ -56,6 +58,7 @@
   --serie-2: #d95926;
   --serie-1-wash: rgba(57,135,229,0.12);
   --acento: #3987e5;
+  --encomenda: #f2c230;
 }
 
 * { box-sizing: border-box; }
@@ -112,16 +115,28 @@ th .seta { color: var(--muted); margin-left: 2px; }
 td { padding: 8px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
 tr.carta { cursor: pointer; }
 tr.carta:hover td { background: var(--hover); }
-tr.carta.tenho .nome-pt::after { content: " · tenho"; color: var(--muted); font-weight: 400; font-size: 12px; }
+tr.carta.tenho .nome-pt::after,
+tr.carta.a-chegar .nome-pt::after {
+  /* Bloco inteiro: o "·" nunca fica sozinho no fim da linha. */
+  content: "· tenho"; display: inline-block; white-space: nowrap; margin-left: 4px;
+  color: var(--muted); font-weight: 400; font-size: 12px;
+}
+tr.carta.a-chegar .nome-pt::after { content: "· a chegar"; }
 .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 th.num { text-align: right; }
 .check { width: 44px; text-align: center; }
 .check input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--acento); }
+.check.encomenda input { accent-color: var(--encomenda); }
+/* Carta que ja tenho nao esta a chegar: o check amarelo apaga. */
+.check input:disabled { cursor: default; opacity: 0.5; }
+/* A carta fica com a sobra; as colunas de numero ficam do tamanho do conteudo. */
+.col-carta { width: 100%; }
 .cel-carta { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cel-carta img { width: 30px; height: 42px; object-fit: cover; border-radius: 3px; background: var(--grid); flex: none; }
 .nome-pt { font-weight: 550; }
 .nome-en { color: var(--muted); font-size: 12px; }
 .spark { display: block; }
+.so-estreito { display: none; }
 .tend { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tend .dia { color: var(--muted); font-size: 12px; display: block; }
 .tend .sem { color: var(--muted); }
@@ -153,6 +168,29 @@ tr.detalhe td { background: var(--page); padding: 16px; }
   .det-grade { grid-template-columns: 1fr; }
   .det-grade img { width: 110px; }
   td, th { padding: 8px 6px; }
+  /* Duas colunas de check: o rotulo quebra para caber a tendencia em 320 px. */
+  .check { width: 38px; padding-left: 4px; padding-right: 4px; }
+  /* Nome comprido ("Luminescente") nao pode alargar a tabela alem da tela. */
+  .nome-pt, .nome-en { overflow-wrap: anywhere; }
+  /* Sem largura para o sufixo ao lado do nome: vira uma linha propria. */
+  tr.carta.tenho .nome-pt::after,
+  tr.carta.a-chegar .nome-pt::after { content: "tenho"; display: block; margin-left: 0; }
+  tr.carta.a-chegar .nome-pt::after { content: "a chegar"; }
+  th.check { white-space: normal; font-size: 11px; line-height: 1.2; }
+  th, th.num { white-space: normal; }
+  /* O "/dia" sai de cada linha e vai para o cabecalho da tendencia. */
+  .so-largo { display: none; }
+  .so-estreito { display: inline; }
+}
+@media (max-width: 400px) {
+  /* Telas estreitas: a miniatura sai (a imagem grande segue no detalhe). */
+  .cel-carta img { display: none; }
+  td, th { padding-left: 3px; padding-right: 3px; }
+  td.num { font-size: 13px; }
+  .tend .dia { font-size: 11px; }
+  .nome-pt { font-size: 13px; }
+  .check { width: 32px; padding-left: 2px; padding-right: 2px; }
+  th.check { font-size: 10px; }
 }
 </style>
 </head>
@@ -180,6 +218,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
       <select id="f-posse">
         <option value="">Todas</option>
         <option value="faltam">Só as que faltam</option>
+        <option value="a-chegar">Só as a chegar</option>
         <option value="tenho">Só as que tenho</option>
       </select>
     </label>
@@ -202,11 +241,12 @@ tr.detalhe td { background: var(--page); padding: 16px; }
       <thead>
         <tr>
           <th class="check" title="Marque as cartas que você já tem">Tenho</th>
-          <th data-ordem="num">Carta <span class="seta"></span></th>
+          <th class="check" title="Marque as cartas que você já encomendou e ainda não chegaram">A chegar</th>
+          <th class="col-carta" data-ordem="num">Carta <span class="seta"></span></th>
           <th class="num" data-ordem="medio">Preço médio <span class="seta"></span></th>
           <th class="num col-min" data-ordem="min">Mínimo <span class="seta"></span></th>
           <th class="col-spark">Evolução</th>
-          <th class="num" data-ordem="tend">Tendência <span class="seta"></span></th>
+          <th class="num" data-ordem="tend">Tendência<span class="so-estreito"> ao dia</span> <span class="seta"></span></th>
         </tr>
       </thead>
       <tbody id="corpo"></tbody>
@@ -218,8 +258,8 @@ tr.detalhe td { background: var(--page); padding: 16px; }
     uma regressão linear do preço médio na janela escolhida; o percentual é a inclinação
     diária dividida pelo preço médio da janela. A coleta roda sozinha de hora em hora; até
     23/09/2026 o histórico é da LigaPokemon (preço de loja brasileira). As marcações de
-    "tenho" ficam salvas neste navegador e no Supabase, e aparecem iguais em qualquer
-    aparelho. Use Exportar para guardar uma cópia.
+    "tenho" e "a chegar" ficam salvas neste navegador e no Supabase, e aparecem iguais em
+    qualquer aparelho. "Só as que faltam" esconde as que você tem e as que já encomendou. Use Exportar para guardar uma cópia.
   </p>
 </main>
 
@@ -228,6 +268,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
 "use strict";
 let DADOS = null;
 const CHAVE_POSSE = "pokemon30:tenho";
+const CHAVE_ENCOMENDA = "pokemon30:encomendei";
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const pct = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -236,20 +277,23 @@ const soHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-di
 const SVGNS = "http://www.w3.org/2000/svg";
 
 // ---------------------------------------------------------------- posse
-function lerPosse() {
-  try { return new Set(JSON.parse(localStorage.getItem(CHAVE_POSSE) || "[]")); }
+function lerLista(chave) {
+  try { return new Set(JSON.parse(localStorage.getItem(chave) || "[]")); }
   catch (e) { return new Set(); }
 }
-function salvarPosse() {
-  try { localStorage.setItem(CHAVE_POSSE, JSON.stringify([...posse])); }
+function salvarLista(chave, lista) {
+  try { localStorage.setItem(chave, JSON.stringify([...lista])); }
   catch (e) { /* armazenamento bloqueado: a marcacao vale so nesta aba */ }
 }
-let posse = lerPosse();
+function salvarPosse() { salvarLista(CHAVE_POSSE, posse); }
+function salvarEncomendas() { salvarLista(CHAVE_ENCOMENDA, encomendas); }
+let posse = lerLista(CHAVE_POSSE);
+let encomendas = lerLista(CHAVE_ENCOMENDA);
 
 // ------------------------------------------------------------- supabase
 // Os precos vem do Supabase (supabase/coleta_precos.sql), e as marcacoes
-// ficam na tabela cartas_marcadas (supabase/cartas_marcadas.sql), uma lista
-// so, sem login. O localStorage vira copia das marcacoes: quando o Supabase
+// ficam nas tabelas cartas_marcadas e cartas_encomendadas
+// (supabase/cartas_marcadas.sql), uma lista so de cada, sem login. O localStorage vira copia das marcacoes: quando o Supabase
 // responde, e ele que vale. A chave e a publicavel: so le os precos e mexe
 // nas marcacoes.
 const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
@@ -260,9 +304,9 @@ const nuvem = window.supabase
 
 function avisarNuvem(texto) { document.getElementById("estado").textContent = texto; }
 
-async function marcarNaNuvem(ks, tem) {
+async function marcarNaNuvem(ks, tem, nome = "cartas_marcadas") {
   if (!nuvem || !ks.length) return;
-  const tabela = nuvem.from("cartas_marcadas");
+  const tabela = nuvem.from(nome);
   const { error } = tem
     ? await tabela.upsert(ks.map(carta => ({ carta })), { ignoreDuplicates: true })
     : await tabela.delete().in("carta", ks);
@@ -279,6 +323,18 @@ async function puxarDaNuvem() {
   }
   posse = new Set(data.map(l => l.carta));
   salvarPosse();
+  render();
+}
+
+async function puxarEncomendas() {
+  const { data, error } = await nuvem.from("cartas_encomendadas").select("carta");
+  if (error) return;
+  if (!data.length && encomendas.size) {
+    await marcarNaNuvem([...encomendas], true, "cartas_encomendadas");
+    return;
+  }
+  encomendas = new Set(data.map(l => l.carta));
+  salvarEncomendas();
   render();
 }
 
@@ -386,14 +442,17 @@ function montarTiles() {
   const edicao = document.getElementById("f-edicao").value;
   const escopo = cartas.filter(c => !edicao || c.col === edicao);
   const minhas = escopo.filter(c => posse.has(c.k));
-  const faltam = escopo.filter(c => !posse.has(c.k));
+  const aChegar = escopo.filter(c => !posse.has(c.k) && encomendas.has(c.k));
+  const faltam = escopo.filter(c => !posse.has(c.k) && !encomendas.has(c.k));
   const soma = lista => lista.reduce((t, c) => t + (c.medio || 0), 0);
   alvo.append(
     tile("Cartas que tenho", `${minhas.length} de ${escopo.length}`,
          `${Math.round((minhas.length / (escopo.length || 1)) * 100)}% ${edicao ? "da edição" : "das duas edições"}`,
          minhas.length / (escopo.length || 1)),
     tile("Valor do que tenho", brl.format(soma(minhas)), "somando o preço médio atual"),
-    tile("Falta para completar", brl.format(soma(faltam)),
+    tile("A chegar", `${aChegar.length} carta${aChegar.length === 1 ? "" : "s"}`,
+         `${brl.format(soma(aChegar))} pelo preço médio`),
+    tile("Falta comprar", brl.format(soma(faltam)),
          `${faltam.length} carta${faltam.length === 1 ? "" : "s"} pelo preço médio`),
   );
 }
@@ -444,17 +503,20 @@ function celulaTendencia(t) {
   const simbolo = estavel ? "▬" : t.pctDia > 0 ? "▲" : "▼";
   const rotulo = estavel ? "estável" : t.pctDia > 0 ? "subindo" : "caindo";
   const p = document.createElement("span");
-  p.textContent = `${simbolo} ${pct.format(t.pctDia)}%/dia`;
+  const unid = document.createElement("span"); unid.className = "so-largo"; unid.textContent = "/dia";
+  p.append(`${simbolo} ${pct.format(t.pctDia)}%`, unid);
   p.title = rotulo;
   const d = document.createElement("span"); d.className = "dia";
-  d.textContent = `${t.porDia >= 0 ? "+" : "−"}${brl.format(Math.abs(t.porDia))}/dia`;
+  const unidDia = document.createElement("span"); unidDia.className = "so-largo"; unidDia.textContent = "/dia";
+  d.append(`${t.porDia >= 0 ? "+" : "−"}${brl.format(Math.abs(t.porDia))}`, unidDia);
   td.append(p, d);
   return td;
 }
 
 function linhaCarta(c) {
   const tr = document.createElement("tr");
-  tr.className = "carta" + (posse.has(c.k) ? " tenho" : "");
+  const classe = () => "carta" + (posse.has(c.k) ? " tenho" : encomendas.has(c.k) ? " a-chegar" : "");
+  tr.className = classe();
   tr.dataset.k = c.k;
 
   const tdCheck = document.createElement("td"); tdCheck.className = "check";
@@ -465,13 +527,36 @@ function linhaCarta(c) {
     if (cb.checked) posse.add(c.k); else posse.delete(c.k);
     salvarPosse();
     marcarNaNuvem([c.k], cb.checked);
-    tr.classList.toggle("tenho", cb.checked);
+    // Chegou: a encomenda acabou.
+    if (cb.checked && encomendas.delete(c.k)) {
+      salvarEncomendas();
+      marcarNaNuvem([c.k], false, "cartas_encomendadas");
+    }
+    pedido.checked = false; pedido.disabled = cb.checked;
+    tr.className = classe();
     montarTiles();
     if (document.getElementById("f-posse").value) render();
   });
   tdCheck.appendChild(cb);
 
-  const tdCarta = document.createElement("td");
+  const tdPedido = document.createElement("td"); tdPedido.className = "check encomenda";
+  const pedido = document.createElement("input"); pedido.type = "checkbox";
+  pedido.checked = !posse.has(c.k) && encomendas.has(c.k);
+  pedido.disabled = posse.has(c.k);
+  pedido.setAttribute("aria-label", `Encomendei ${c.pt || c.en}`);
+  pedido.addEventListener("click", ev => ev.stopPropagation());
+  pedido.addEventListener("change", () => {
+    if (pedido.checked) encomendas.add(c.k); else encomendas.delete(c.k);
+    salvarEncomendas();
+    marcarNaNuvem([c.k], pedido.checked, "cartas_encomendadas");
+    tr.className = classe();
+    montarTiles();
+    if (document.getElementById("f-posse").value) render();
+  });
+  tdPedido.appendChild(pedido);
+  tdPedido.addEventListener("click", ev => ev.stopPropagation());
+
+  const tdCarta = document.createElement("td"); tdCarta.className = "col-carta";
   const cel = document.createElement("div"); cel.className = "cel-carta";
   if (c.img) {
     const img = document.createElement("img");
@@ -494,9 +579,13 @@ function linhaCarta(c) {
   const tdSpark = document.createElement("td"); tdSpark.className = "col-spark";
   tdSpark.appendChild(sparkline(c));
 
-  tr.append(tdCheck, tdCarta, tdMedio, tdMin, tdSpark, celulaTendencia(c.tend));
+  tr.append(tdCheck, tdPedido, tdCarta, tdMedio, tdMin, tdSpark, celulaTendencia(c.tend));
   tr.addEventListener("click", () => { aberta = aberta === c.k ? null : c.k; render(); });
   return tr;
+}
+
+function situacao(k) {
+  return posse.has(k) ? "tenho" : encomendas.has(k) ? "a-chegar" : "faltam";
 }
 
 function render() {
@@ -507,7 +596,7 @@ function render() {
 
   let lista = cartas.filter(c =>
     (!edicao || c.col === edicao) &&
-    (!filtroPosse || (filtroPosse === "tenho") === posse.has(c.k)) &&
+    (!filtroPosse || filtroPosse === situacao(c.k)) &&
     (!busca || `${c.pt} ${c.en} ${c.num}`.toLowerCase().includes(busca))
   );
   const valor = {
@@ -530,7 +619,7 @@ function render() {
   corpo.replaceChildren();
   if (!lista.length) {
     const tr = document.createElement("tr"); const td = document.createElement("td");
-    td.colSpan = 6; td.className = "vazio";
+    td.colSpan = 7; td.className = "vazio";
     td.textContent = DADOS ? "Nenhuma carta com esses filtros." : "Carregando…";
     tr.appendChild(td); corpo.appendChild(tr);
   }
@@ -544,7 +633,7 @@ function render() {
 // ------------------------------------------------------------ detalhe
 function linhaDetalhe(c) {
   const tr = document.createElement("tr"); tr.className = "detalhe";
-  const td = document.createElement("td"); td.colSpan = 6;
+  const td = document.createElement("td"); td.colSpan = 7;
   const grade = document.createElement("div"); grade.className = "det-grade";
 
   const lado = document.createElement("div");
@@ -721,7 +810,7 @@ for (const th of document.querySelectorAll("th[data-ordem]")) {
   });
 }
 document.getElementById("exportar").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ tenho: [...posse].sort() }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ tenho: [...posse].sort(), encomendei: [...encomendas].sort() }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "pokemon30-tenho.json";
   document.body.appendChild(a); a.click(); a.remove();
@@ -736,8 +825,11 @@ document.getElementById("importar").addEventListener("change", async ev => {
     const validas = new Set(cartas.map(c => c.k));
     const novas = (lido.tenho || []).filter(k => validas.has(k) && !posse.has(k));
     for (const k of novas) posse.add(k);
-    salvarPosse(); render();
+    const pedidas = (lido.encomendei || []).filter(k => validas.has(k) && !posse.has(k) && !encomendas.has(k));
+    for (const k of pedidas) encomendas.add(k);
+    salvarPosse(); salvarEncomendas(); render();
     marcarNaNuvem(novas, true);
+    marcarNaNuvem(pedidas, true, "cartas_encomendadas");
   } catch (e) {
     const aviso = document.getElementById("aviso");
     aviso.hidden = false; aviso.textContent = "Não consegui ler esse arquivo de marcações.";
@@ -787,6 +879,7 @@ if (nuvem) {
     .then(() => { document.getElementById("atualizar").disabled = false; })
     .catch(e => { document.getElementById("sub").textContent = `Não consegui ler os preços: ${mensagemDeErro(e)}`; });
   puxarDaNuvem();
+  puxarEncomendas();
 } else {
   document.getElementById("sub").textContent = "Não consegui carregar a biblioteca do Supabase; confira a conexão e recarregue.";
 }
