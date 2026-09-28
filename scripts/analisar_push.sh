@@ -90,7 +90,7 @@ else
     if [ "$mb" -gt 400 ]; then falha "banco com $mb MB (plano gratis: 500 MB)"
     else echo "  ok: banco com $mb MB de 500"; fi
 
-    sem_rls="$(sql "select string_agg(tablename, ', ') from pg_tables where schemaname = 'public' and tablename in ('precos', 'cartas', 'coletas', 'cartas_marcadas') and not rowsecurity")"
+    sem_rls="$(sql "select string_agg(tablename, ', ') from pg_tables where schemaname = 'public' and tablename in ('precos', 'cartas', 'coletas', 'cartas_marcadas', 'cartas_encomendadas') and not rowsecurity")"
     if [ -n "$sem_rls" ]; then falha "tabela(s) sem RLS: $sem_rls"; else echo "  ok: RLS ligado nas tabelas do painel"; fi
 
     # O projeto do Supabase abriga outros apps; so interessa o que e deste:
