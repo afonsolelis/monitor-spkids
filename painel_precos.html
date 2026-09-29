@@ -160,6 +160,14 @@ tr.detalhe td { background: var(--page); padding: 16px; }
 .dica .linha { display: flex; align-items: center; gap: 6px; }
 .dica .linha b { font-variant-numeric: tabular-nums; }
 .resumo { color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+.obs { margin-top: 16px; }
+.obs label { display: block; color: var(--ink-2); font-size: 13px; margin-bottom: 4px; }
+.obs textarea {
+  display: block; width: 100%; resize: vertical; font: inherit; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+}
+.obs textarea::placeholder { color: var(--muted); }
+.obs textarea:focus { outline: 2px solid var(--encomenda); outline-offset: -1px; }
 .vazio { color: var(--muted); padding: 32px; text-align: center; }
 .rodape { color: var(--muted); font-size: 12px; margin-top: 16px; }
 
@@ -269,6 +277,7 @@ tr.detalhe td { background: var(--page); padding: 16px; }
 let DADOS = null;
 const CHAVE_POSSE = "pokemon30:tenho";
 const CHAVE_ENCOMENDA = "pokemon30:encomendei";
+const CHAVE_OBS = "pokemon30:obs";
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const pct = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -289,6 +298,21 @@ function salvarPosse() { salvarLista(CHAVE_POSSE, posse); }
 function salvarEncomendas() { salvarLista(CHAVE_ENCOMENDA, encomendas); }
 let posse = lerLista(CHAVE_POSSE);
 let encomendas = lerLista(CHAVE_ENCOMENDA);
+// Observacao de cada encomenda ({carta: texto}): de onde a carta vem.
+let observacoes = (() => {
+  try { return JSON.parse(localStorage.getItem(CHAVE_OBS) || "{}"); }
+  catch (e) { return {}; }
+})();
+function salvarObs() {
+  try { localStorage.setItem(CHAVE_OBS, JSON.stringify(observacoes)); }
+  catch (e) { /* armazenamento bloqueado: a observacao vale so nesta aba */ }
+}
+// Encomenda que acabou (chegou ou foi desmarcada) leva a observacao junto.
+function esquecerObs(k) {
+  if (!(k in observacoes)) return;
+  delete observacoes[k];
+  salvarObs();
+}
 
 // ------------------------------------------------------------- supabase
 // Os precos vem do Supabase (supabase/coleta_precos.sql), e as marcacoes
@@ -326,15 +350,22 @@ async function puxarDaNuvem() {
   render();
 }
 
+async function anotarNaNuvem(k, obs) {
+  if (!nuvem) return;
+  const { error } = await nuvem.from("cartas_encomendadas").update({ obs: obs || null }).eq("carta", k);
+  if (error) avisarNuvem(`Não salvou a observação no Supabase: ${error.message}`);
+}
+
 async function puxarEncomendas() {
-  const { data, error } = await nuvem.from("cartas_encomendadas").select("carta");
+  const { data, error } = await nuvem.from("cartas_encomendadas").select("carta, obs");
   if (error) return;
   if (!data.length && encomendas.size) {
     await marcarNaNuvem([...encomendas], true, "cartas_encomendadas");
     return;
   }
   encomendas = new Set(data.map(l => l.carta));
-  salvarEncomendas();
+  observacoes = Object.fromEntries(data.filter(l => l.obs).map(l => [l.carta, l.obs]));
+  salvarEncomendas(); salvarObs();
   render();
 }
 
@@ -529,13 +560,13 @@ function linhaCarta(c) {
     marcarNaNuvem([c.k], cb.checked);
     // Chegou: a encomenda acabou.
     if (cb.checked && encomendas.delete(c.k)) {
-      salvarEncomendas();
+      salvarEncomendas(); esquecerObs(c.k);
       marcarNaNuvem([c.k], false, "cartas_encomendadas");
     }
     pedido.checked = false; pedido.disabled = cb.checked;
     tr.className = classe();
     montarTiles();
-    if (document.getElementById("f-posse").value) render();
+    if (document.getElementById("f-posse").value || aberta === c.k) render();
   });
   tdCheck.appendChild(cb);
 
@@ -546,12 +577,13 @@ function linhaCarta(c) {
   pedido.setAttribute("aria-label", `Encomendei ${c.pt || c.en}`);
   pedido.addEventListener("click", ev => ev.stopPropagation());
   pedido.addEventListener("change", () => {
-    if (pedido.checked) encomendas.add(c.k); else encomendas.delete(c.k);
+    if (pedido.checked) encomendas.add(c.k); else { encomendas.delete(c.k); esquecerObs(c.k); }
     salvarEncomendas();
     marcarNaNuvem([c.k], pedido.checked, "cartas_encomendadas");
     tr.className = classe();
     montarTiles();
-    if (document.getElementById("f-posse").value) render();
+    // Com o detalhe aberto, o campo de observacao aparece ou some.
+    if (document.getElementById("f-posse").value || aberta === c.k) render();
   });
   tdPedido.appendChild(pedido);
   tdPedido.addEventListener("click", ev => ev.stopPropagation());
@@ -675,8 +707,36 @@ function linhaDetalhe(c) {
   direita.appendChild(resumo);
 
   grade.append(lado, direita);
-  td.appendChild(grade); tr.appendChild(td);
+  td.appendChild(grade);
+  if (!posse.has(c.k) && encomendas.has(c.k)) td.appendChild(campoObs(c));
+  tr.appendChild(td);
   return tr;
+}
+
+// Anotacao livre da encomenda. Salva enquanto digita (com uma pausa, para
+// nao mandar uma escrita por tecla) e ao sair do campo.
+function campoObs(c) {
+  const caixa = document.createElement("div"); caixa.className = "obs";
+  const rot = document.createElement("label");
+  rot.htmlFor = "obs-campo"; rot.textContent = "Observação";
+  const campo = document.createElement("textarea");
+  campo.id = "obs-campo"; campo.rows = 2; campo.maxLength = 500;
+  campo.placeholder = "De onde vem esta carta? Ex.: loja, vendedor, número do pedido";
+  campo.value = observacoes[c.k] || "";
+  let espera = null, salvo = campo.value;
+  const salvar = () => {
+    clearTimeout(espera);
+    const texto = campo.value.trim();
+    if (texto === salvo) return;
+    salvo = texto;
+    if (texto) observacoes[c.k] = texto; else delete observacoes[c.k];
+    salvarObs();
+    anotarNaNuvem(c.k, texto);
+  };
+  campo.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(salvar, 800); });
+  campo.addEventListener("blur", salvar);
+  caixa.append(rot, campo);
+  return caixa;
 }
 
 function grafico(c) {
@@ -810,7 +870,7 @@ for (const th of document.querySelectorAll("th[data-ordem]")) {
   });
 }
 document.getElementById("exportar").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ tenho: [...posse].sort(), encomendei: [...encomendas].sort() }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ tenho: [...posse].sort(), encomendei: [...encomendas].sort(), observacoes }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "pokemon30-tenho.json";
   document.body.appendChild(a); a.click(); a.remove();
@@ -827,9 +887,15 @@ document.getElementById("importar").addEventListener("change", async ev => {
     for (const k of novas) posse.add(k);
     const pedidas = (lido.encomendei || []).filter(k => validas.has(k) && !posse.has(k) && !encomendas.has(k));
     for (const k of pedidas) encomendas.add(k);
-    salvarPosse(); salvarEncomendas(); render();
+    // So entra observacao de encomenda que ainda nao tem uma.
+    const anotadas = Object.entries(lido.observacoes || {})
+      .filter(([k, obs]) => typeof obs === "string" && obs.trim() && encomendas.has(k) && !posse.has(k) && !observacoes[k])
+      .map(([k, obs]) => [k, obs.trim().slice(0, 500)]);
+    for (const [k, obs] of anotadas) observacoes[k] = obs;
+    salvarPosse(); salvarEncomendas(); salvarObs(); render();
     marcarNaNuvem(novas, true);
-    marcarNaNuvem(pedidas, true, "cartas_encomendadas");
+    await marcarNaNuvem(pedidas, true, "cartas_encomendadas");
+    for (const [k, obs] of anotadas) anotarNaNuvem(k, obs);
   } catch (e) {
     const aviso = document.getElementById("aviso");
     aviso.hidden = false; aviso.textContent = "Não consegui ler esse arquivo de marcações.";

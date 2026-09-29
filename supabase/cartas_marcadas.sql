@@ -47,3 +47,14 @@ create policy "todos marcam" on public.cartas_encomendadas
   for insert to anon, authenticated with check (true);
 create policy "todos desmarcam" on public.cartas_encomendadas
   for delete to anon, authenticated using (true);
+
+-- Observacao da encomenda (de quem comprei, de onde vem). Texto curto,
+-- editado no detalhe da carta. O update so pode mexer nessa coluna.
+alter table public.cartas_encomendadas
+  add column if not exists obs text check (char_length(obs) <= 500);
+
+grant update (obs) on public.cartas_encomendadas to anon, authenticated;
+
+drop policy if exists "todos anotam" on public.cartas_encomendadas;
+create policy "todos anotam" on public.cartas_encomendadas
+  for update to anon, authenticated using (true) with check (true);

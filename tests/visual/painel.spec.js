@@ -17,6 +17,7 @@ const SUPABASE_JS = fs.readFileSync(require.resolve("@supabase/supabase-js/dist/
 const AGORA = new Date("2026-09-25T10:40:00Z");
 const MARCADAS = ["30C/001", "30C/150", "30C-C/149"];
 const ENCOMENDADAS = ["30C/002", "30C/004"];
+const OBS = { "30C/002": "Liga Pokémon, vendedor Fulano, pedido 1234" };
 const IMAGEM = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="558"><rect width="400" height="558" fill="#9a9890"/></svg>`;
 
 async function abrir(page, { painel = "ok" } = {}) {
@@ -37,7 +38,7 @@ async function abrir(page, { painel = "ok" } = {}) {
     }
     for (const [tabela, lista] of [["/cartas_marcadas", MARCADAS], ["/cartas_encomendadas", ENCOMENDADAS]]) {
       if (!url.includes(tabela)) continue;
-      if (rota.request().method() === "GET") return json(JSON.stringify(lista.map(carta => ({ carta }))));
+      if (rota.request().method() === "GET") return json(JSON.stringify(lista.map(carta => ({ carta, obs: OBS[carta] }))));
       return rota.fulfill({ status: 201, body: "" });
     }
     return json(JSON.stringify({ message: "rota nao simulada" }), 404);
@@ -94,6 +95,18 @@ test("detalhe da carta", async ({ page }) => {
   const detalhe = page.locator("tr.detalhe");
   await expect(detalhe).toBeVisible();
   await expect(detalhe).toHaveScreenshot("detalhe.png");
+});
+
+test("detalhe da carta a chegar", async ({ page }) => {
+  await abrir(page);
+  await page.locator('tr.carta[data-k="30C/002"]').click();
+  await page.mouse.move(0, 0);
+  const campo = page.getByLabel("Observação");
+  await expect(campo).toHaveValue(OBS["30C/002"]);
+  await expect(page.locator("tr.detalhe")).toHaveScreenshot("detalhe-a-chegar.png");
+  // Desmarcou a encomenda: o campo some.
+  await page.locator('tr.carta[data-k="30C/002"]').getByRole("checkbox", { name: /^Encomendei/ }).uncheck();
+  await expect(page.getByLabel("Observação")).toHaveCount(0);
 });
 
 test("filtro so as que tenho", async ({ page }) => {
