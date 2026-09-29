@@ -1,0 +1,12 @@
+# Lint do Python (roda no CI). Erros de sintaxe, pyflakes, bugbear e as
+# checagens de seguranca do bandit que fazem sentido num script de cron.
+target-version = "py312"
+line-length = 110
+
+[lint]
+select = ["E9", "F", "B", "S"]
+ignore = [
+  "S101",  # assert e usado como checagem interna
+  "S603",  # subprocess com lista de argumentos fixa
+  "S607",  # comandos do sistema pelo PATH
+]

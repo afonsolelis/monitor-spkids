@@ -1,0 +1,40 @@
+# Publica o painel no GitHub Pages. E so a casca: os precos vem do Supabase
+# quando alguem abre a pagina, e a coleta roda no pg_cron do proprio Supabase
+# (supabase/coleta_precos.sql).
+name: Painel de preços
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [painel_precos.html, .github/workflows/painel.yml]
+
+concurrency:
+  group: painel
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - run: mkdir site && cp painel_precos.html site/index.html
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

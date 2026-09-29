@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Exige Conventional Commits na primeira linha da mensagem:
+#   <tipo>(<escopo opcional>)!: <descricao>
+# Tipos: feat fix docs style refactor perf test build ci chore revert.
+# Ativado pelo instalar.sh (git config core.hooksPath .githooks).
+set -euo pipefail
+
+primeira="$(grep -v '^#' "$1" | sed -n '/./{p;q}')"
+tipos='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+
+# Mensagens que o proprio git gera.
+case "$primeira" in
+  "Merge "*|"Revert \""*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+
+if ! printf '%s' "$primeira" | grep -Eq "^($tipos)(\([a-z0-9._/-]+\))?!?: [^ ].*"; then
+  cat >&2 <<MSG
+commit recusado: a mensagem precisa seguir Conventional Commits.
+
+  recebido: $primeira
+  formato:  <tipo>(<escopo>): <descricao>
+  tipos:    ${tipos//|/, }
+  exemplo:  fix(coleta): tolera pagina vazia da PokeWallet
+MSG
+  exit 1
+fi
+
+if [ "${#primeira}" -gt 72 ]; then
+  echo "commit recusado: a primeira linha tem ${#primeira} caracteres (maximo 72)." >&2
+  exit 1
+fi
