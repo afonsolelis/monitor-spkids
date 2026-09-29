@@ -97,7 +97,7 @@ MONITOR="$REPO/rodar_monitor.sh"
 if crontab -l 2>/dev/null | grep -v '^#' | grep -Fq "$MONITOR "; then
   echo "    ja existe uma linha do monitor no crontab; mantida como esta"
 else
-  instalar_cron "*/15 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
+  instalar_cron "*/5 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
     "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
 fi
 

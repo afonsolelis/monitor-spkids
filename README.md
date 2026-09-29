@@ -6,7 +6,7 @@ Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas loja
 - **Copag B2B** (`b2b.copagloja.com.br/pokemon`): a coleção já está cadastrada,
   mas sem estoque. O aviso sai quando algum item **entra em estoque**.
 
-Roda a cada 15 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
+Roda a cada 5 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
 
 À parte, o Supabase grava de hora em hora o preço de todas as cartas das duas
 edições (191 cartas), e um painel no GitHub Pages mostra a evolução, a tendência
@@ -27,7 +27,7 @@ cd monitor-spkids
 
 O `instalar.sh` prepara tudo: cria o ambiente Python (tenta `uv`, depois
 `venv`, e no pior caso usa o Python do sistema), cria as pastas, roda um teste
-e instala o cron a cada 15 minutos. Rodar de novo é seguro — ele não duplica o
+e instala o cron a cada 5 minutos. Rodar de novo é seguro — ele não duplica o
 cron nem sobrescreve suas credenciais.
 
 ### 2. Colocar a Senha de App do Gmail
@@ -77,7 +77,8 @@ A partir daí é só esperar: o e-mail chega sozinho quando algo mudar.
 O site esconde os preços atrás de `Faça login para ver o preço`, mas isso é só
 no HTML. A **Store API do WooCommerce** (`/wp-json/wc/store/v1`) é pública e
 devolve os preços sem autenticação — conferidos contra o site logado, batem
-exatamente. Nenhuma senha do site é usada, guardada ou necessária.
+exatamente. Para avisar, nenhuma senha do site é necessária; o login só entra
+na [compra automática](#compra-automática).
 
 ### Duas fontes, para não perder o lançamento
 
@@ -98,6 +99,36 @@ Os padrões foram validados contra os 40 nomes reais da coleção como listados
 no mercado brasileiro, normalizados para o estilo do catálogo da SP Kids
 (maiúscula, sem acento): 40 de 40 detectados, sem casar com falsos positivos
 como `PASTA 3X3 C/ 30 FOLHAS`.
+
+### Cadastrada não é à venda
+
+A loja publica a página com preço antes de liberar a compra: os produtos de
+30 anos ficaram escondidos do catálogo, com `is_in_stock` falso. As páginas
+ocultas são consultadas em `/products/{id}` (a listagem as esconde, mas a
+rota por id responde), e o aviso "JA DA PARA COMPRAR" só sai quando entra
+estoque. `is_purchasable` não serve de sinal: sem login ele vem falso em todo
+o catálogo.
+
+O campo `add_to_cart.maximum` da Store API é o estoque que sobra (teto 9999
+quando a loja não controla estoque ou ele está zerado) — conferido pedindo
+uma unidade a mais que ele no carrinho.
+
+### Compra automática
+
+Com `SPKIDS_COMPRA=ID:QTD` (e `SPKIDS_EMAIL`/`SPKIDS_SENHA`) no
+`~/.config/spkids/env`, na execução em que o produto entrar em estoque o
+monitor entra na conta, põe a quantidade no carrinho, escolhe o frete de
+`SPKIDS_FRETE` (padrão `Retirada`), fecha o pedido com Pix (PagHiper) e manda
+o e-mail com o link do pedido, o Pix copia-e-cola, a validade e o QR Code
+anexo, quando a página do pedido os traz.
+
+- Só segue com o carrinho da conta vazio; senão avisa e não mexe.
+- Depois de tentar o checkout, não tenta de novo sozinho (registro em
+  `compras` no estado), para nunca duplicar o pedido. Falha antes disso
+  (login, rede) tenta na execução seguinte.
+- Carrinho não reserva estoque; o pedido criado, sim, enquanto espera o
+  pagamento. O pedido mínimo da loja é R$ 1.000.
+- Se falhar, o e-mail traz o passo a passo para fechar na mão.
 
 ---
 
@@ -328,5 +359,5 @@ perfis: desktop e celular, tema claro e escuro.
 ## Limitação conhecida
 
 O cron não recupera execução perdida: se a máquina estiver suspensa às 14h00,
-não roda 14h00 — roda na próxima janela de 15 minutos em que estiver acordada. Para garantia em máquina que dorme, troque por um
+não roda 14h00 — roda na próxima janela de 5 minutos em que estiver acordada. Para garantia em máquina que dorme, troque por um
 timer do systemd com `Persistent=true`.

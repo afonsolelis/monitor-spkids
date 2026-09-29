@@ -19,6 +19,7 @@ ha, 1 em caso de erro — inclusive quando nenhum canal conseguiu avisar.
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import json
 import logging
@@ -139,7 +140,7 @@ class Produto:
 
 
 # ------------------------------------------------------------------- coleta
-def criar_sessao(timeout_retries: int = 3) -> requests.Session:
+def criar_sessao(timeout_retries: int = 3, repetir_post: bool = True) -> requests.Session:
     sessao = requests.Session()
     sessao.headers.update(
         {
@@ -152,7 +153,9 @@ def criar_sessao(timeout_retries: int = 3) -> requests.Session:
         total=timeout_retries,
         backoff_factor=1.5,
         status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("GET", "POST"),
+        # A sessao da compra nao repete POST: um checkout repetido depois de um
+        # 502 pode virar dois pedidos.
+        allowed_methods=("GET", "POST") if repetir_post else ("GET",),
         respect_retry_after_header=True,
     )
     adaptador = HTTPAdapter(max_retries=politica)
@@ -314,6 +317,7 @@ def salvar_estado(
     sitemap: list[str],
     alertados: set[str],
     ids_ocultos: dict[str, int],
+    compras: dict[str, Any] | None = None,
 ) -> None:
     gravar_estado(
         caminho,
@@ -323,6 +327,7 @@ def salvar_estado(
             "sitemap": sorted(sitemap),
             "alertados": sorted(alertados),
             "ids_ocultos": dict(sorted(ids_ocultos.items())),
+            "compras": compras or {},
         },
     )
 
@@ -522,6 +527,7 @@ def enviar_email(
     corpo: str,
     assinatura: str = "monitor_spkids",
     site: str = SITE,
+    anexos: list[tuple[bytes, str, str]] | None = None,
 ) -> bool:
     """Envia o relatorio por SMTP.
 
@@ -545,6 +551,8 @@ def enviar_email(
     mensagem["To"] = ", ".join(destinos)
     mensagem.set_content(f"{corpo}\n\n--\n{assinatura} | {site}")
     mensagem.add_alternative(_corpo_html(titulo, corpo, assinatura, site), subtype="html")
+    for dados, subtipo, nome in anexos or []:
+        mensagem.add_attachment(dados, maintype="image", subtype=subtipo, filename=nome)
 
     try:
         conexao = (
@@ -585,20 +593,18 @@ def enviar_email(
     return True
 
 
-# ------------------------------------------------------------- teste de login
-def testar_login(sessao: requests.Session, timeout: float = 30.0) -> bool:
-    """Confere se as credenciais do ambiente autenticam no WooCommerce.
+# ---------------------------------------------------------------------- login
+def entrar(sessao: requests.Session, timeout: float = 30.0) -> str:
+    """Autentica no WooCommerce com SPKIDS_EMAIL e SPKIDS_SENHA do ambiente.
 
-    Le SPKIDS_EMAIL e SPKIDS_SENHA do ambiente; a senha nunca e gravada nem
-    registrada no log. O monitor nao precisa disso — a Store API ja devolve os
-    precos sem login —, esta funcao existe so para responder se a autenticacao
-    por script funciona.
+    Devolve "" se entrou, ou o motivo da falha. A senha nunca e gravada nem
+    registrada no log. Sem login a Store API ja mostra estoque e preco; ele so
+    e preciso para montar o carrinho e fechar o pedido.
     """
     email = os.environ.get("SPKIDS_EMAIL", "")
     senha = os.environ.get("SPKIDS_SENHA", "")
     if not (email and senha):
-        log.error("defina SPKIDS_EMAIL e SPKIDS_SENHA no ambiente para testar o login")
-        return False
+        return "defina SPKIDS_EMAIL e SPKIDS_SENHA no ambiente"
 
     url = f"{SITE}/minha-conta/"
     pagina = sessao.get(url, timeout=timeout, headers={"Accept": "text/html"})
@@ -607,8 +613,7 @@ def testar_login(sessao: requests.Session, timeout: float = 30.0) -> bool:
         r'name="woocommerce-login-nonce"\s+value="([^"]+)"', pagina.text
     )
     if not nonce:
-        log.error("nonce de login nao encontrado — o formulario do site mudou")
-        return False
+        return "nonce de login nao encontrado — o formulario do site mudou"
 
     resposta = sessao.post(
         url,
@@ -630,12 +635,297 @@ def testar_login(sessao: requests.Session, timeout: float = 30.0) -> bool:
         r'<ul class="woocommerce-error".*?</ul>', resposta.text, re.S | re.I
     )
     if tem_cookie and not erro:
-        print("login OK: sessao autenticada (cookie wordpress_logged_in_ recebido)")
-        return True
-
+        return ""
     motivo = re.sub(r"<[^>]+>", " ", erro.group(0)) if erro else "sem cookie de sessao"
-    print(f"login FALHOU: {' '.join(_texto(motivo).split())}")
-    return False
+    return " ".join(_texto(motivo).split())
+
+
+def testar_login(sessao: requests.Session, timeout: float = 30.0) -> bool:
+    motivo = entrar(sessao, timeout)
+    if motivo:
+        print(f"login FALHOU: {motivo}")
+        return False
+    print("login OK: sessao autenticada (cookie wordpress_logged_in_ recebido)")
+    return True
+
+
+# --------------------------------------------------------------------- compra
+@dataclass
+class Compra:
+    """O que aconteceu na tentativa de compra, para o e-mail e o estado."""
+
+    produto: Produto
+    quantidade: int
+    no_carrinho: bool = False
+    tentou_checkout: bool = False
+    pedido: int | None = None
+    link: str = ""
+    pix: str = ""
+    validade: str = ""
+    # Imagem do QR Code como a pagina do pedido entrega: (bytes, subtipo MIME).
+    qrcode: tuple[bytes, str] | None = None
+    erro: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.pedido is not None and not self.erro
+
+
+def _mensagem(resposta: requests.Response) -> str:
+    try:
+        corpo = resposta.json()
+    except ValueError:
+        return f"HTTP {resposta.status_code}"
+    return _texto(re.sub(r"<[^>]+>", " ", str(corpo.get("message", ""))))
+
+
+def _normalizar(valor: str) -> str:
+    return " ".join(_sem_acento(valor).split())
+
+
+def comprar(
+    sessao: requests.Session,
+    produto: Produto,
+    quantidade: int,
+    frete: str,
+    timeout: float = 30.0,
+) -> Compra:
+    """Monta o carrinho da conta e fecha o pedido com Pix (PagHiper).
+
+    So segue com o carrinho vazio: o pedido fecharia tudo que estivesse nele,
+    inclusive coisas que o dono da conta deixou ali por outro motivo. Pedido
+    minimo, frete e dados de cobranca vem da propria loja e da conta.
+    """
+    compra = Compra(produto=produto, quantidade=quantidade)
+    try:
+        motivo = entrar(sessao, timeout)
+        if motivo:
+            compra.erro = f"login falhou: {motivo}"
+            return compra
+
+        cabecalhos = {"Content-Type": "application/json"}
+
+        def api(metodo: str, rota: str, **kw: Any) -> requests.Response:
+            resposta = sessao.request(
+                metodo, f"{API}/{rota}", headers=cabecalhos, timeout=timeout, **kw
+            )
+            # A Store API troca o nonce a cada resposta; POST sem ele e recusado.
+            if resposta.headers.get("Nonce"):
+                cabecalhos["Nonce"] = resposta.headers["Nonce"]
+            return resposta
+
+        carrinho = api("GET", "cart").json()
+        if carrinho.get("items_count"):
+            compra.erro = (
+                "o carrinho da conta ja tinha itens; nao mexi nele para nao fechar "
+                "um pedido com o que voce nao pediu"
+            )
+            return compra
+
+        resposta = api("POST", "cart/add-item", json={"id": produto.id, "quantity": quantidade})
+        if not resposta.ok:
+            compra.erro = f"nao entrou no carrinho: {_mensagem(resposta)}"
+            return compra
+        compra.no_carrinho = True
+
+        carrinho = api("GET", "cart").json()
+        alvo = _normalizar(frete)
+        escolhido = None
+        for pacote in carrinho.get("shipping_rates", []):
+            for taxa in pacote.get("shipping_rates", []):
+                if alvo in _normalizar(_texto(taxa.get("name", ""))):
+                    escolhido = (pacote["package_id"], taxa["rate_id"])
+                    break
+        if escolhido is None:
+            compra.erro = f"frete {frete!r} nao oferecido para este carrinho"
+            return compra
+        resposta = api(
+            "POST",
+            "cart/select-shipping-rate",
+            json={"package_id": escolhido[0], "rate_id": escolhido[1]},
+        )
+        if not resposta.ok:
+            compra.erro = f"nao consegui escolher o frete: {_mensagem(resposta)}"
+            return compra
+        carrinho = resposta.json()
+        if carrinho.get("errors"):
+            compra.erro = "; ".join(
+                _texto(e.get("message", "")) for e in carrinho["errors"]
+            )
+            return compra
+
+        cobranca = carrinho.get("billing_address") or {}
+        entrega = carrinho.get("shipping_address") or {}
+        # Entrega em branco na conta: a loja usa a cobranca, mas a Store API
+        # valida os dois enderecos.
+        if not entrega.get("address_1"):
+            entrega = {k: v for k, v in cobranca.items() if k != "email"}
+
+        compra.tentou_checkout = True
+        resposta = api(
+            "POST",
+            "checkout",
+            json={
+                "billing_address": cobranca,
+                "shipping_address": entrega,
+                "payment_method": "paghiper_pix",
+                "payment_data": [],
+                "customer_note": "Pedido feito pelo monitor_spkids.",
+            },
+        )
+        dados = resposta.json() if resposta.headers.get("Content-Type", "").startswith(
+            "application/json"
+        ) else {}
+        compra.pedido = dados.get("order_id") or None
+        resultado = dados.get("payment_result") or {}
+        compra.link = resultado.get("redirect_url") or ""
+        if not resposta.ok or resultado.get("payment_status") == "failure":
+            detalhes = "; ".join(
+                f"{d.get('key')}: {d.get('value')}" for d in resultado.get("payment_details", [])
+            )
+            compra.erro = f"checkout recusado: {_mensagem(resposta) or detalhes}"
+            return compra
+
+        if compra.link:
+            # A pagina do pedido traz o Pix copia-e-cola do PagHiper.
+            pagina = sessao.get(compra.link, timeout=timeout, headers={"Accept": "text/html"})
+            ler_pagina_pix(sessao, compra, pagina.text, timeout)
+    except (requests.RequestException, ValueError) as erro:
+        compra.erro = f"falha de rede ou resposta inesperada: {erro}"
+    return compra
+
+
+def ler_pagina_pix(
+    sessao: requests.Session, compra: Compra, pagina: str, timeout: float = 30.0
+) -> None:
+    """Tira da pagina do pedido o Pix copia-e-cola, o QR Code e a validade.
+
+    O layout e do plugin do PagHiper e nunca foi visto (so aparece com pedido
+    feito), entao tudo aqui e tentativa: o que nao achar fica vazio e o e-mail
+    manda o link da pagina, que sempre funciona.
+    """
+    achado = re.search(r"000201[0-9A-Za-z .:/*@\-]{40,}?6304[0-9A-Fa-f]{4}", pagina)
+    compra.pix = achado.group(0) if achado else ""
+
+    texto = " ".join(_texto(re.sub(r"<[^>]+>", " ", pagina)).split())
+    validade = re.search(
+        r"(?:v[aá]lid[oa]|expira|vencimento|pague at[eé])[^.]{0,80}?"
+        r"(\d{2}/\d{2}/\d{4}(?:\s*(?:[aà]s)?\s*\d{2}:\d{2})?|\d+\s*(?:minutos?|horas?|dias?))",
+        texto,
+        re.I,
+    )
+    compra.validade = validade.group(0) if validade else ""
+
+    for tag, src in re.findall(r'(<img[^>]+src="([^"]+)"[^>]*>)', pagina):
+        # O src de imagem embutida e so base64; quem diz que e o QR e a tag.
+        if not re.search(r"qr|pix|paghiper", re.sub(r'src="[^"]*"', "", tag) + src[:200], re.I):
+            continue
+        embutida = re.match(r"data:image/(png|jpe?g|gif);base64,(.+)", src, re.S)
+        try:
+            if embutida:
+                compra.qrcode = (base64.b64decode(embutida.group(2)), embutida.group(1))
+            else:
+                imagem = sessao.get(html.unescape(src), timeout=timeout)
+                imagem.raise_for_status()
+                tipo = imagem.headers.get("Content-Type", "")
+                if not tipo.startswith("image/"):
+                    continue
+                compra.qrcode = (imagem.content, tipo.split("/", 1)[1].split(";")[0])
+        except (requests.RequestException, ValueError):
+            continue
+        return
+
+
+def texto_compra(c: Compra, frete: str) -> str:
+    total = c.produto.preco * c.quantidade if c.produto.preco is not None else None
+    valor = (
+        Produto(0, "", "", "", total, c.produto.decimais, True).preco_formatado
+        if total is not None
+        else "?"
+    )
+    linhas = [f"Compra automatica: {c.quantidade}x {c.produto.nome} ({valor} + frete: {frete})"]
+    if c.ok:
+        linhas.append(f"PEDIDO FEITO: #{c.pedido}. Pague o Pix para garantir:")
+        linhas.append(f"  {c.link or SITE + '/minha-conta/orders/'}")
+        if c.validade:
+            linhas.append(f"  Validade informada pela loja: {c.validade}")
+        if c.qrcode:
+            linhas.append("  O QR Code vai anexo a este e-mail.")
+        if c.pix:
+            linhas.append(f"  Pix copia e cola:\n  {c.pix}")
+        linhas.append(
+            "  O estoque fica reservado so enquanto o pedido espera o pagamento;"
+            " se o Pix vencer, a loja pode cancelar o pedido."
+        )
+        return "\n".join(linhas)
+
+    linhas.append(f"A COMPRA AUTOMATICA FALHOU: {c.erro}")
+    if c.pedido:
+        linhas.append(f"  Mas o pedido #{c.pedido} foi criado; confira em {SITE}/minha-conta/orders/")
+    # Se ja entrou no carrinho, o link de adicionar dobraria a quantidade.
+    passo1 = (
+        f"ja esta no seu carrinho: {SITE}/carrinho/"
+        if c.no_carrinho
+        else f"{SITE}/?add-to-cart={c.produto.id}&quantity={c.quantidade}"
+    )
+    linhas.append(
+        "  Faca na mao, rapido:\n"
+        f"  1. {passo1}\n"
+        f"  2. {SITE}/finalizar-compra/ (frete: {frete}, pagamento: Pix)"
+    )
+    return "\n".join(linhas)
+
+
+def tentar_compra(
+    args: argparse.Namespace, compras: dict[str, Any], conhecidos: list[Produto]
+) -> Compra | None:
+    """Compra o produto de --comprar se ele estiver a venda e ainda nao foi comprado.
+
+    `compras` e o registro do estado: depois que o checkout foi tentado, nunca
+    tenta de novo sozinho — um pedido criado com a resposta perdida no caminho
+    viraria pedido duplicado. Falha antes do checkout (login, rede) tenta de novo
+    na proxima execucao.
+    """
+    try:
+        id_txt, _, qtd_txt = args.comprar.partition(":")
+        alvo_id, quantidade = int(id_txt), int(qtd_txt or 1)
+    except ValueError:
+        log.error("--comprar deve ser ID:QTD (ex.: 2003:3), veio %r", args.comprar)
+        return None
+    if str(alvo_id) in compras:
+        return None
+
+    with criar_sessao(repetir_post=False) as sessao:
+        produto = next((p for p in conhecidos if p.id == alvo_id), None)
+        if produto is None:
+            # Nem no catalogo nem entre as paginas ocultas achadas pelo nome.
+            try:
+                resposta = sessao.get(f"{API}/products/{alvo_id}", timeout=30)
+                resposta.raise_for_status()
+                produto = Produto.da_api(resposta.json())
+            except (requests.RequestException, ValueError) as erro:
+                log.warning("nao consegui consultar o produto %s da compra (%s)", alvo_id, erro)
+                return None
+        if not produto.a_venda:
+            log.info("compra automatica: %s ainda sem estoque", produto.nome)
+            return None
+
+        log.warning("compra automatica: %s entrou em estoque, comprando %d", produto.nome, quantidade)
+        compra = comprar(sessao, produto, quantidade, args.frete)
+
+    if compra.ok:
+        log.warning("compra automatica: pedido %s criado", compra.pedido)
+    else:
+        log.error("compra automatica falhou: %s", compra.erro)
+    if compra.tentou_checkout or compra.ok:
+        compras[str(alvo_id)] = {
+            "em": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "quantidade": quantidade,
+            "pedido": compra.pedido,
+            "link": compra.link,
+            "erro": compra.erro,
+        }
+    return compra
 
 
 # ----------------------------------------------------------------------- CLI
@@ -670,6 +960,18 @@ def montar_parser() -> argparse.ArgumentParser:
         default=[d for d in os.environ.get("SPKIDS_ALERTA_PARA", "").split(",") if d.strip()],
         help="destinatario do alerta por e-mail (pode repetir); "
         "servidor e senha vem das variaveis SPKIDS_SMTP_*",
+    )
+    parser.add_argument(
+        "--comprar",
+        default=os.environ.get("SPKIDS_COMPRA", ""),
+        metavar="ID:QTD",
+        help="fecha o pedido com Pix assim que o produto ID tiver estoque "
+        "(ex.: 2003:3); usa SPKIDS_EMAIL/SPKIDS_SENHA. Compra uma vez so",
+    )
+    parser.add_argument(
+        "--frete",
+        default=os.environ.get("SPKIDS_FRETE", "Retirada"),
+        help="trecho do nome do frete da compra automatica (padrao: Retirada)",
     )
     parser.add_argument(
         "--sempre-notificar",
@@ -762,17 +1064,36 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         titulo, corpo = montar_relatorio(achados)
+
+        compras = dict(estado.get("compras") or {})
+        compra: Compra | None = None
+        if args.comprar:
+            compra = tentar_compra(args, compras, [*produtos, *prods_ocultos])
+        if compra is not None:
+            corpo = texto_compra(compra, args.frete) + "\n\n" + corpo
+            titulo = (
+                f"Pokemon 30 anos: PEDIDO #{compra.pedido} FEITO, pague o Pix!"
+                if compra.ok
+                else "Pokemon 30 anos: A VENDA ABRIU e a compra automatica falhou"
+            )
         print(titulo)
         print()
         print(corpo)
 
-        houve_novidade = achados.houve_novidade
+        houve_novidade = achados.houve_novidade or compra is not None
         entregues: list[bool] = []
         if houve_novidade or args.sempre_notificar:
             if args.webhook:
                 entregues.append(notificar(sessao, args.webhook, titulo, corpo))
             if args.email:
-                entregues.append(enviar_email([d.strip() for d in args.email], titulo, corpo))
+                anexos = (
+                    [(compra.qrcode[0], compra.qrcode[1], f"pix-pedido-{compra.pedido}.{compra.qrcode[1]}")]
+                    if compra is not None and compra.qrcode
+                    else None
+                )
+                entregues.append(
+                    enviar_email([d.strip() for d in args.email], titulo, corpo, anexos=anexos)
+                )
         # Sem canal configurado o relatorio no stdout basta; com canal, basta um
         # ter entregado.
         falhou = bool(entregues) and not any(entregues)
@@ -791,6 +1112,7 @@ def main(argv: list[str] | None = None) -> int:
             sitemap if sitemap is not None else estado.get("sitemap", []),
             ja_avisados | achados.chaves_lancamento(),
             ids_ocultos,
+            compras,
         )
 
     if falhou:
