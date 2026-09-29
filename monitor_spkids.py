@@ -89,6 +89,7 @@ class Produto:
     categorias: list[str] = field(default_factory=list)
     slugs: list[str] = field(default_factory=list)
     descricao: str = ""
+    compravel: bool = False
 
     @classmethod
     def da_api(cls, bruto: dict[str, Any]) -> "Produto":
@@ -105,7 +106,18 @@ class Produto:
             categorias=[_texto(c.get("name", "")) for c in bruto.get("categories", [])],
             slugs=[c.get("slug", "") for c in bruto.get("categories", [])],
             descricao=_texto(re.sub(r"<[^>]+>", " ", bruto.get("short_description", ""))),
+            compravel=bool(bruto.get("is_purchasable")),
         )
+
+    @property
+    def slug(self) -> str:
+        return self.url.rstrip("/").rsplit("/", 1)[-1]
+
+    @property
+    def a_venda(self) -> bool:
+        """Cadastrado nao basta: a loja publica a pagina com preco semanas antes
+        de liberar a compra, com estoque zerado e sem botao de comprar."""
+        return self.em_estoque and self.compravel
 
     @property
     def preco_formatado(self) -> str:
@@ -203,6 +215,44 @@ def baixar_sitemap(sessao: requests.Session, timeout: float = 30.0) -> list[str]
     ]
 
 
+def consultar_ocultos(
+    sessao: requests.Session,
+    slugs: list[str],
+    ids: dict[str, int],
+    timeout: float = 30.0,
+) -> tuple[list[Produto], list[str]]:
+    """Situacao de venda das paginas que estao fora do catalogo.
+
+    A listagem da Store API esconde esses produtos (nem `?slug=` os acha), mas
+    `/products/{id}` responde normalmente, com estoque e se da para comprar. O
+    id sai da classe `postid-N` da pagina e fica em `ids` (gravado no estado)
+    para nao baixar a pagina de novo a cada execucao.
+
+    Devolve (produtos consultados, slugs que nao deu para consultar).
+    """
+    produtos: list[Produto] = []
+    falhas: list[str] = []
+    for slug in slugs:
+        try:
+            if slug not in ids:
+                pagina = sessao.get(
+                    f"{SITE}/produto/{slug}/", timeout=timeout, headers={"Accept": "text/html"}
+                )
+                pagina.raise_for_status()
+                achado = re.search(r"\bpostid-(\d+)\b", pagina.text)
+                if not achado:
+                    raise ValueError("id do produto nao encontrado na pagina")
+                ids[slug] = int(achado.group(1))
+            resposta = sessao.get(f"{API}/products/{ids[slug]}", timeout=timeout)
+            resposta.raise_for_status()
+            produtos.append(Produto.da_api(resposta.json()))
+        except (requests.RequestException, ValueError) as erro:
+            log.warning("nao consegui consultar a pagina oculta %s (%s)", slug, erro)
+            ids.pop(slug, None)
+            falhas.append(slug)
+    return produtos, falhas
+
+
 # ------------------------------------------------------------------ deteccao
 def compilar(padroes: tuple[str, ...] | list[str]) -> re.Pattern[str]:
     return re.compile("|".join(f"(?:{p})" for p in padroes), re.IGNORECASE)
@@ -264,6 +314,7 @@ def salvar_estado(
     categorias: list[str],
     sitemap: list[str],
     alertados: set[str],
+    ids_ocultos: dict[str, int],
 ) -> None:
     gravar_estado(
         caminho,
@@ -272,6 +323,7 @@ def salvar_estado(
             "categorias": categorias,
             "sitemap": sorted(sitemap),
             "alertados": sorted(alertados),
+            "ids_ocultos": dict(sorted(ids_ocultos.items())),
         },
     )
 
@@ -306,6 +358,8 @@ class Achados:
     por_termo: list[Produto] = field(default_factory=list)
     categorias_termo: list[str] = field(default_factory=list)
     ocultos_suspeitos: list[str] = field(default_factory=list)
+    # Paginas fora do catalogo que deu para consultar pela API.
+    ocultos: list[Produto] = field(default_factory=list)
     produtos_novos: list[Produto] = field(default_factory=list)
     categorias_novas: list[str] = field(default_factory=list)
     slugs_novos: list[str] = field(default_factory=list)
@@ -319,15 +373,26 @@ class Achados:
             {chave_produto(p) for p in self.por_termo}
             | {f"c:{c}" for c in self.categorias_termo}
             | {f"s:{s}" for s in self.ocultos_suspeitos}
+            | {chave_oculto(p) for p in self.ocultos}
         )
 
     @property
     def e_lancamento(self) -> bool:
-        return bool(self.por_termo or self.categorias_termo or self.ocultos_suspeitos)
+        return bool(
+            self.por_termo or self.categorias_termo or self.ocultos_suspeitos or self.ocultos
+        )
 
     @property
     def lancamento_novo(self) -> bool:
         return bool(self.chaves_lancamento() - self.ja_avisados)
+
+    @property
+    def venda_nova(self) -> bool:
+        """Algum produto passou a poder ser comprado desde o ultimo aviso."""
+        return any(
+            p.a_venda and chave_produto(p) not in self.ja_avisados
+            for p in [*self.por_termo, *self.ocultos]
+        )
 
     @property
     def houve_novidade(self) -> bool:
@@ -337,8 +402,22 @@ class Achados:
 
 
 def chave_produto(p: Produto) -> str:
-    """Inclui o estoque: sair da pre-venda e entrar em estoque avisa de novo."""
-    return f"p:{p.id}:{'estoque' if p.em_estoque else 'fora'}"
+    """Inclui a venda: sair da pre-venda e poder comprar avisa de novo."""
+    return f"p:{p.id}:{'estoque' if p.a_venda else 'fora'}"
+
+
+def chave_oculto(p: Produto) -> str:
+    """Pagina oculta sem venda mantem a chave do sitemap (`s:slug`), a mesma de
+    antes de consultar a API: quem ja foi avisado da pagina nao recebe de novo."""
+    return chave_produto(p) if p.a_venda else f"s:{p.slug}"
+
+
+def situacao(p: Produto) -> str:
+    if p.a_venda:
+        return "JA DA PARA COMPRAR"
+    if p.em_estoque:
+        return "com estoque, mas a compra ainda nao foi liberada"
+    return "ainda nao da para comprar: sem estoque"
 
 
 def montar_relatorio(a: Achados) -> tuple[str, str]:
@@ -355,16 +434,20 @@ def montar_relatorio(a: Achados) -> tuple[str, str]:
                 + ", ".join(marca(f"c:{c}") + c for c in a.categorias_termo)
             )
         for p in a.por_termo:
-            estoque = "em estoque" if p.em_estoque else "indisponivel/pre-venda"
             linhas.append(
                 f"- {marca(chave_produto(p))}{p.nome}\n"
-                f"  {p.preco_formatado} ({estoque})\n  {p.url}"
+                f"  {p.preco_formatado} ({situacao(p)})\n  {p.url}"
             )
-        if a.ocultos_suspeitos:
+        if a.ocultos or a.ocultos_suspeitos:
             linhas.append(
                 "\nPaginas ja criadas, ainda invisiveis no catalogo "
                 "(achadas no sitemap — o site pode estar montando a colecao agora):"
             )
+            for p in a.ocultos:
+                linhas.append(
+                    f"- {marca(chave_oculto(p))}{p.nome}\n"
+                    f"  {p.preco_formatado} ({situacao(p)})\n  {p.url}"
+                )
             for slug in a.ocultos_suspeitos:
                 linhas.append(f"- {marca(f's:{slug}')}{slug}\n  {SITE}/produto/{slug}/")
 
@@ -372,9 +455,10 @@ def montar_relatorio(a: Achados) -> tuple[str, str]:
     ids_termo = {p.id for p in a.por_termo}
     prods = [p for p in a.produtos_novos if p.id not in ids_termo]
     cats = [c for c in a.categorias_novas if c not in a.categorias_termo]
-    slugs_prods = {p.url.rstrip("/").rsplit("/", 1)[-1] for p in a.produtos_novos}
+    slugs_prods = {p.slug for p in a.produtos_novos}
+    slugs_ocultos = set(a.ocultos_suspeitos) | {p.slug for p in a.ocultos}
     somente_sitemap = [
-        s for s in a.slugs_novos if s not in slugs_prods and s not in a.ocultos_suspeitos
+        s for s in a.slugs_novos if s not in slugs_prods and s not in slugs_ocultos
     ]
     genericas = bool(prods or cats or somente_sitemap)
     if genericas:
@@ -388,8 +472,10 @@ def montar_relatorio(a: Achados) -> tuple[str, str]:
             linhas.append("\nPaginas novas no sitemap, ainda fora do catalogo:")
             linhas.extend(f"- {SITE}/produto/{s}/" for s in somente_sitemap)
 
-    if a.lancamento_novo:
-        titulo = "Pokemon 30 anos: LANCOU na SP Kids!"
+    if a.venda_nova:
+        titulo = "Pokemon 30 anos: JA DA PARA COMPRAR na SP Kids!"
+    elif a.lancamento_novo:
+        titulo = "Pokemon 30 anos: cadastrada na SP Kids, mas ainda sem venda"
     elif genericas:
         titulo = "SP Kids: produtos novos (sem sinal de 30 anos)"
     elif a.e_lancamento:
@@ -647,7 +733,7 @@ def main(argv: list[str] | None = None) -> int:
         por_termo, cats_termo = procurar(alvos, categorias, regex, args.profundo)
 
         sitemap = baixar_sitemap(sessao)
-        visiveis = {p.url.rstrip("/").rsplit("/", 1)[-1] for p in produtos}
+        visiveis = {p.slug for p in produtos}
         ocultos = [s for s in sitemap or [] if s not in visiveis]
         if sitemap is not None:
             log.info(
@@ -656,6 +742,12 @@ def main(argv: list[str] | None = None) -> int:
 
         estado = carregar_estado(args.estado)
         ja_avisados = set(estado.get("alertados", []))
+        ids_ocultos = {
+            s: int(i) for s, i in (estado.get("ids_ocultos") or {}).items() if s in ocultos
+        }
+        prods_ocultos, sem_consulta = consultar_ocultos(
+            sessao, [s for s in ocultos if regex.search(s.replace("-", " "))], ids_ocultos
+        )
         prods_novos, cats_novas, slugs_novos = novidades(
             estado, produtos, categorias, sitemap
         )
@@ -663,7 +755,8 @@ def main(argv: list[str] | None = None) -> int:
         achados = Achados(
             por_termo=por_termo,
             categorias_termo=cats_termo,
-            ocultos_suspeitos=[s for s in ocultos if regex.search(s.replace("-", " "))],
+            ocultos_suspeitos=sem_consulta,
+            ocultos=prods_ocultos,
             produtos_novos=prods_novos,
             categorias_novas=cats_novas,
             slugs_novos=slugs_novos,
@@ -700,6 +793,7 @@ def main(argv: list[str] | None = None) -> int:
             categorias,
             sitemap if sitemap is not None else estado.get("sitemap", []),
             ja_avisados | achados.chaves_lancamento(),
+            ids_ocultos,
         )
 
     if falhou:
