@@ -129,6 +129,11 @@ anexo, quando a página do pedido os traz.
 - Carrinho não reserva estoque; o pedido criado, sim, enquanto espera o
   pagamento. O pedido mínimo da loja é R$ 1.000.
 - Se falhar, o e-mail traz o passo a passo para fechar na mão.
+- Ligue a compra em **uma máquina só**: o registro de `compras` fica no
+  estado local, então duas máquinas com `SPKIDS_COMPRA` fariam dois pedidos.
+- Precisa de IP residencial. O Cloudflare da loja responde a IP de datacenter
+  (Render, GitHub Actions) com o desafio "Just a moment..." (403), até na home;
+  por isso a SP Kids roda no cron de casa e só a Copag roda na Render.
 
 ---
 

@@ -7,8 +7,10 @@ especializados ficam em [`.agents/`](.agents/).
 ## O projeto
 
 - `monitor_spkids.py` e `monitor_copag.py`: avisam por e-mail quando a coleção
-  Pokémon 30 anos aparece/entra em estoque. A SP Kids roda no cron desta
-  máquina (`rodar_monitor.sh spkids`, 5 min); a Copag roda na Render.
+  Pokémon 30 anos aparece/entra em estoque. A SP Kids (com a compra
+  automática) roda no cron de uma máquina de casa (`rodar_monitor.sh`, 5 min):
+  o Cloudflare da loja barra IP de datacenter, então não vai para a Render. A
+  Copag roda na Render. Compra ligada em uma máquina só (estado é local).
 - `supabase/coleta_precos.sql`: coleta de preço das cartas dentro do Supabase
   (pg_cron às :17, chave da PokéWallet no Vault). Funções internas no schema
   `coleta`, fora da API; públicas só `painel_precos()` e `atualizar_precos()`.
