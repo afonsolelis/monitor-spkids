@@ -89,7 +89,6 @@ class Produto:
     categorias: list[str] = field(default_factory=list)
     slugs: list[str] = field(default_factory=list)
     descricao: str = ""
-    compravel: bool = False
 
     @classmethod
     def da_api(cls, bruto: dict[str, Any]) -> "Produto":
@@ -106,7 +105,6 @@ class Produto:
             categorias=[_texto(c.get("name", "")) for c in bruto.get("categories", [])],
             slugs=[c.get("slug", "") for c in bruto.get("categories", [])],
             descricao=_texto(re.sub(r"<[^>]+>", " ", bruto.get("short_description", ""))),
-            compravel=bool(bruto.get("is_purchasable")),
         )
 
     @property
@@ -115,9 +113,10 @@ class Produto:
 
     @property
     def a_venda(self) -> bool:
-        """Cadastrado nao basta: a loja publica a pagina com preco semanas antes
-        de liberar a compra, com estoque zerado e sem botao de comprar."""
-        return self.em_estoque and self.compravel
+        """Cadastrado nao basta: a loja publica a pagina com preco antes de
+        liberar a compra, com estoque zerado. `is_purchasable` nao serve de
+        sinal: sem login ele vem falso em todo o catalogo, ate com estoque."""
+        return self.em_estoque
 
     @property
     def preco_formatado(self) -> str:
@@ -415,8 +414,6 @@ def chave_oculto(p: Produto) -> str:
 def situacao(p: Produto) -> str:
     if p.a_venda:
         return "JA DA PARA COMPRAR"
-    if p.em_estoque:
-        return "com estoque, mas a compra ainda nao foi liberada"
     return "ainda nao da para comprar: sem estoque"
 
 
