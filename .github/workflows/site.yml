@@ -1,16 +1,17 @@
-# Publica o painel no GitHub Pages. E so a casca: os precos vem do Supabase
-# quando alguem abre a pagina, e a coleta roda no pg_cron do proprio Supabase
-# (supabase/coleta_precos.sql).
-name: Painel de preços
+# Publica o site no GitHub Pages: index.html (noticias) na raiz e o painel de
+# precos das cartas como precos.html. As duas paginas sao so a casca: os dados
+# vem do Supabase quando alguem abre, e as coletas rodam no pg_cron do proprio
+# Supabase (supabase/noticias.sql e supabase/coleta_precos.sql).
+name: Site
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [painel_precos.html, .github/workflows/painel.yml]
+    paths: [index.html, painel_precos.html, .github/workflows/site.yml]
 
 concurrency:
-  group: painel
+  group: site
   cancel-in-progress: false
 
 permissions:
@@ -30,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: mkdir site && cp painel_precos.html site/index.html
+      - run: mkdir site && cp index.html site/ && cp painel_precos.html site/precos.html
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

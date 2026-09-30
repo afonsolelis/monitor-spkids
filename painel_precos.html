@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cartas Pokémon 30 anos</title>
-<!-- Painel publicado no GitHub Pages. Os dados vem do Supabase ao abrir
+<!-- Painel publicado no GitHub Pages como precos.html (a raiz e o
+     index.html, das noticias). Os dados vem do Supabase ao abrir
      (rpc painel_precos, ver supabase/coleta_precos.sql). -->
 <style>
 :root {
@@ -66,9 +67,19 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Noto Sans antes do generico: Chromium em Linux sem system-ui resolvido
+     desenhava o texto com altura zero. Nos outros sistemas o system-ui vence. */
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
 }
-main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; }
+/* Mesmas abas do index.html (Noticias). */
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 24px; }
+.abas a {
+  color: var(--ink-2); text-decoration: none; padding: 8px 12px; margin-bottom: -1px;
+  border-bottom: 2px solid transparent; font-weight: 500;
+}
+.abas a:hover { color: var(--ink); }
+.abas a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--acento); }
 h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
 .topo { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
 .sub { color: var(--ink-2); margin: 0; }
@@ -204,6 +215,10 @@ tr.detalhe td { background: var(--page); padding: 16px; }
 </head>
 <body>
 <main>
+  <nav class="abas" aria-label="Seções">
+    <a href="./">Notícias</a>
+    <a href="precos.html" aria-current="page">Cartas 30 anos</a>
+  </nav>
   <div class="topo">
     <div>
       <h1>Cartas Pokémon 30 anos</h1>

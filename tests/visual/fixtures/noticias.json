@@ -1,0 +1,535 @@
+{
+ "gerado_em": "2026-09-30T16:50:53.805222+00:00",
+ "fontes": [
+  {
+   "id": "nasa",
+   "nome": "NASA",
+   "tema": "ciencia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nature",
+   "nome": "Nature",
+   "tema": "ciencia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "pesquisa-fapesp",
+   "nome": "Pesquisa FAPESP",
+   "tema": "ciencia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "quanta",
+   "nome": "Quanta Magazine",
+   "tema": "ciencia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "sciencedaily",
+   "nome": "ScienceDaily",
+   "tema": "ciencia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "eurogamer",
+   "nome": "Eurogamer",
+   "tema": "games",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "ign-brasil",
+   "nome": "IGN Brasil",
+   "tema": "games",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nintendoboy",
+   "nome": "Nintendo Boy",
+   "tema": "games",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nintendo-life",
+   "nome": "Nintendo Life",
+   "tema": "games",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "mit-ia",
+   "nome": "MIT Technology Review",
+   "tema": "ia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "techcrunch-ia",
+   "nome": "TechCrunch",
+   "tema": "ia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "verge-ia",
+   "nome": "The Verge",
+   "tema": "ia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-pokemon",
+   "nome": "Google Notícias",
+   "tema": "pokemon",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nl-pokemon",
+   "nome": "Nintendo Life",
+   "tema": "pokemon",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "pokejungle",
+   "nome": "PokeJungle",
+   "tema": "pokemon",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-pokemon-tcg-en",
+   "nome": "Google News",
+   "tema": "pokemon-tcg",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-pokemon-tcg",
+   "nome": "Google Notícias",
+   "tema": "pokemon-tcg",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nl-pokemon-tcg",
+   "nome": "Nintendo Life",
+   "tema": "pokemon-tcg",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "ars-technica",
+   "nome": "Ars Technica",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "canaltech",
+   "nome": "Canaltech",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "hacker-news",
+   "nome": "Hacker News",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": "Failed to connect to hnrss.org port 443 after 10002 ms: Timeout was reached"
+  },
+  {
+   "id": "olhar-digital",
+   "nome": "Olhar Digital",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "tecnoblog",
+   "nome": "Tecnoblog",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "the-verge",
+   "nome": "The Verge",
+   "tema": "tecnologia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  }
+ ],
+ "noticias": [
+  {
+   "t": "Asus won’t say how it escaped the US router ban",
+   "l": "https://www.theverge.com/policy/1002504/asus-escape-us-router-ban-us-manufacturing",
+   "r": "This spring, the United States banned all future foreign-made consumer routers - effectively all future routers - unless their makers could 1) convince the US government that they weren't a national security threat, and 2) submit \"a detailed, time-bound plan to establish or expa…",
+   "i": "",
+   "f": "the-verge",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:44:20+00:00"
+  },
+  {
+   "t": "Desbloqueio do PS5 e PS5 Pro alcança videogames desatualizados, confira",
+   "l": "https://canaltech.com.br/games/desbloqueio-do-ps5-e-ps5-pro-alcanca-videogames-desatualizados-confira/",
+   "r": "Uma nova vulnerabilidade foi encontrada no sistema do PS5 e PlayStation 5 Pro , o que permite o desbloqueio da plataforma para rodar modificações e softwares não autorizados pela Sony Interactive Entertainment (SIE) . O jailbreak, chamado de Relapse 13.60 , funciona nos firmware…",
+   "i": "",
+   "f": "canaltech",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:36:41+00:00"
+  },
+  {
+   "t": "The Pokémon 30th Celebration Elite Trainer Box is under market price — buy for $89.99 on Amazon - mashable.com",
+   "l": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQMTI2X082RFp0RU81MW9LQ1lKTkFyUWw3Vi1hN28yVUdiTl8xSGlVLUJZTDVEWGphaVZBUmVsQjlXLVc1cXprYWxjX2wyblhQVGF6TWdTWXgzWmNhR3RFOFRlY1UzYzJzVkZFMTA2TkdVUmRySTh4TENGZ0pMcFZMUld0aUREdzc0Qkg4OVNR?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T16:30:18+00:00"
+  },
+  {
+   "t": "Pokémon: as trilogias inacabadas que os fãs ainda querem - einerd.com",
+   "l": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNN1BhY0k1SzZFZ1hnN1gycE1HVjE0OVRzOWdsSlg5OHhOQ3E5X3ZqQWt6ZWlnb0l3RU0zS1dDWFZwLXFVeWNGbzNIMmNEQ09Ha1hzeG5rTWpOWTh6TkNoSXl4TklKOXJmTWhVR2FhTFRxc2F4UkxPRW5GQ0RJS1R3YXAwQkg3dw?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon",
+   "tm": "pokemon",
+   "p": "2026-09-30T16:30:00+00:00"
+  },
+  {
+   "t": "Grasshopper Manufacture Parts Ways With NetEase And Goes Independent",
+   "l": "https://www.nintendolife.com/news/2026/09/grasshopper-manufacture-parts-ways-with-netease-and-goes-independent",
+   "r": "\"We continue to cherish the amazing relationship our companies built\". Grasshopper Manufacture has announced that it has parted way with parent company NetEase and is now once again an independent developer. NetEase acquired Grasshopper back in 2021, but after a string of acquis…",
+   "i": "https://images.nintendolife.com/5255b8a688c26/large.jpg",
+   "f": "nintendo-life",
+   "tm": "games",
+   "p": "2026-09-30T16:30:00+00:00"
+  },
+  {
+   "t": "‘Xbox is not for sale’ says Microsoft’s gaming chief",
+   "l": "https://www.theverge.com/news/1002736/xbox-not-for-sale-asha-sharma-interview",
+   "r": "Xbox CEO Asha Sharma has denied reports that Microsoft is considering selling off its Xbox business. The Information reported in June that Microsoft CEO Satya Nadella and CFO Amy Hood had been considering spinning out Xbox entirely, and then reported earlier this month that both…",
+   "i": "",
+   "f": "the-verge",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:24:30+00:00"
+  },
+  {
+   "t": "Meta disputes claim that Muse read a user’s private messages without permission",
+   "l": "https://techcrunch.com/2026/09/30/meta-disputes-claim-that-muse-read-a-users-private-messages-without-permission/",
+   "r": "Meta says its Muse AI agent cannot access a user’s Messages without explicit permission, disputing a journalist’s account that the agent read his private messages while the required Mac setting was turned off.",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T16:24:23+00:00"
+  },
+  {
+   "t": "Som na praia, em casa ou onde você quiser: veja caixas Bluetooth portáteis em oferta na Amazon",
+   "l": "https://olhardigital.com.br/2026/09/30/reviews/som-na-praia-em-casa-ou-onde-voce-quiser-veja-caixas-bluetooth-portateis-em-oferta-na-amazon/",
+   "r": "Se você está em busca de uma boa caixa de som Bluetooth para levar a trilha sonora a qualquer lugar, a Amazon reúne agora algumas opções interessantes com preços competitivos. Selecionamos três modelos portáteis que combinam conectividade, durabilidade e qualidade sonora — dá um…",
+   "i": "https://m.media-amazon.com/images/I/41-SWcb+ecL._SL500_.jpg",
+   "f": "olhar-digital",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:20:00+00:00"
+  },
+  {
+   "t": "Computador quântico da IBM faz em 19 segundos cálculo que PC \"comum\" levaria 110 anos",
+   "l": "https://canaltech.com.br/hardware/computador-quantico-da-ibm-faz-em-19-segundos-calculo-que-pc-comum-levaria-110-anos/",
+   "r": "O processador quântico Nighthawk r2, desenvolvido pela IBM , alcançou um novo marco na computação avançada ao concluir uma tarefa de amostragem de circuitos aleatórios em apenas 19 segundos . O experimento gerou um milhão de amostras complexas, um volume de cálculos que, segundo…",
+   "i": "https://tl.ctcdn.com.br/5I2-sVf84q-KJL1-hlgfW7dreg0=/0x0/filters:format(webp):quality(85)/03d53512-9def-4d8b-af28-83b1c927f447.jpg",
+   "f": "canaltech",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:07:00+00:00"
+  },
+  {
+   "t": "Tempestade pode ter desenterrado restos de navio que naufragou há 140 anos",
+   "l": "https://olhardigital.com.br/2026/09/30/ciencia-e-espaco/tempestade-pode-ter-desenterrado-restos-de-navio-que-naufragou-ha-140-anos/",
+   "r": "Restos de madeira apareceram na praia de Nantucket, nos EUA; ilha é conhecida como um dos \"cemitérios do Atlântico\" O post Tempestade pode ter desenterrado restos de navio que naufragou há 140 anos apareceu primeiro em Olhar Digital .",
+   "i": "https://olhardigital.com.br/wp-content/uploads/2026/09/Restos-de-navio-1024x576.jpg",
+   "f": "olhar-digital",
+   "tm": "tecnologia",
+   "p": "2026-09-30T16:06:05+00:00"
+  },
+  {
+   "t": "DoorDash launches an AI agent you can text to order food",
+   "l": "https://techcrunch.com/2026/09/30/doordash-launches-an-ai-agent-you-can-text-to-order-food/",
+   "r": "By launching an AI agent for food ordering, DoorDash is looking to gain an edge over rivals Uber Eats and Grubhub.",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T16:00:24+00:00"
+  },
+  {
+   "t": "Destro AI’s secret sauce is getting robots and humans on the same page",
+   "l": "https://techcrunch.com/2026/09/30/destro-ais-secret-sauce-is-getting-robots-and-humans-on-the-same-page/",
+   "r": "\"One of the biggest reasons we are winning against robotics companies is because we are not a robotics company.\"",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T16:00:00+00:00"
+  },
+  {
+   "t": "Instinct’s new product recommendations are giving some users the ick",
+   "l": "https://techcrunch.com/2026/09/30/instincts-new-product-recommendations-are-giving-some-users-the-ick/",
+   "r": "Instinct is rolling out human-curated product and travel recommendations, but some users aren’t happy about getting suggestions they never asked for.",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T15:56:28+00:00"
+  },
+  {
+   "t": "Delta Reign Pokémon Center Preorders Are Live - Joseph Writer Anderson",
+   "l": "https://news.google.com/rss/articles/CBMinAFBVV95cUxOVk5vVWlSSW90aFV2M0MyYjQwbnltdkNFanFHN3ZKWmczdlZxLUUxM2Q5MFdxTmw0cEFRN2hUamRZRGZvUU1OTVotb1lTdHZ3Y3NVbGg2VXJBMlJIcEc1WUszNHNQVDltZzQtOHIyNUU0NnQwcWJLTWlheFNsYUNKUFZkU1dLQi14Vk1RUXpTTEc2QlFObWxKWjBmSXM?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T15:54:07+00:00"
+  },
+  {
+   "t": "Edição Física de Pokémon Legends: Z-A anunciada para a Nintendo Switch 2 - IGN Portugal",
+   "l": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxOb3RSUzdYNDBCY0VOdFJESzFfYzk4QWZSOFBVQnkxVmp6SmozeHZPdTQweWFaY2J2QkpDQkQwcHZ2b3JWVnBmb242XzVrRjFRMkhFUTJicW9XSk9rbllnVHNmaVRfQ2stWXBEVjZNY2xzYmpTR0pRN0Rpc01DX2NyMk5EVjhUcHdtM0JpQXU2Rk0ybDMwUmVUaHZhbndxbWpfYnRuWjZyMjFfNW1JeEVqVGZNTThxODBq?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon",
+   "tm": "pokemon",
+   "p": "2026-09-30T15:47:36+00:00"
+  },
+  {
+   "t": "Pokémon Legends: Z-A Is Getting A New Switch 2 Physical Release Next Month",
+   "l": "https://www.nintendolife.com/news/2026/09/pokemon-legends-z-a-is-getting-a-new-switch-2-physical-release-next-month",
+   "r": "Bundled DLC, anyone? Just as it did with Scarlet and Violet , Nintendo and The Pokémon Company have today announced that Pokémon Legends: Z-A will be getting a new Switch 2 physical release that comes with the DLC bundled in. The new copies will launch on 29th October and contai…",
+   "i": "https://images.nintendolife.com/184110cad253c/large.jpg",
+   "f": "nintendo-life",
+   "tm": "games",
+   "p": "2026-09-30T15:45:00+00:00"
+  },
+  {
+   "t": "It's not even out yet, but Valve's Deadlock just became one of the most played games on Steam",
+   "l": "https://www.eurogamer.net/deadlock-update-steam-most-played-games",
+   "r": "Valve's new MOBA Deadlock - a sort of cross between Dota and Overwatch - might not be fully released yet, or even accessible by vast portions of the public,but that hasn't stopped its latest update propelling it to being one of the most played games on Steam. Read more",
+   "i": "https://assetsio.gnwcdn.com/deadlock-hidden-king.jpg?width=690&quality=85&format=jpg&auto=webp",
+   "f": "eurogamer",
+   "tm": "games",
+   "p": "2026-09-30T15:24:38+00:00"
+  },
+  {
+   "t": "‘Grave Seasons’ precisará de mais tempo para esconder os corpos: o Farming Sim sombrio lança em março de 2027",
+   "l": "https://nintendoboy.com.br/2026/09/grave-seasons-precisara-de-mais-tempo-para-esconder-os-corpos-o-farming-sim-sombrio-lanca-em-marco-de-2027/",
+   "r": "A Perfect Garbage e a publicadora Blumhouse Games anunciaram um novo adiamento para a previsão de lançamento de Grave Seasons, mas desta vez com direito a uma data mais definitiva",
+   "i": "https://nintendoboy.com.br/wp-content/uploads/2026/09/1000421870-791x445.jpg",
+   "f": "nintendoboy",
+   "tm": "games",
+   "p": "2026-09-30T15:10:37+00:00"
+  },
+  {
+   "t": "Pokémon TCG 30th Celebration Night Pikachu Mini Tin preorders are under market price at Walmart — while stocks last - mashable.com",
+   "l": "https://news.google.com/rss/articles/CBMioAFBVV95cUxNa2dXMDg0ZGkydEFYMXZfajQyWjRSQ0RDVzVEYWJBVDE2c3g5OU9BZ3N0XzZDam85QjY5NjA4WG5wYy1yQUJ2cnViZlVaaHJ6cDJlZUZ5Vk01dHJBUFpiVlFldXNDbm5jM0lpbjZ0MXVkQ3NFV0xPNVhoWnpMNkxlazI1UTFnbFMzVnBJVmlQa2lUTGRmZGhJdmtlb0tfTmIt?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T15:09:56+00:00"
+  },
+  {
+   "t": "Pokémon TCG 30th Celebration Booster Bundle preorders are well under market price at Walmart - mashable.com",
+   "l": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNQnJxd2djUXVIUkVtTU9hcnJDd0tTdXNOLUt5ZDVxMTBBQkl2Q05Vbl9qbndnaVExcWRQczBRRjBubDhtOXlvVk5Ybkk4QTRVTkxHMGhNWnhuVzVtRjF1X1Jnd1JZbHQ4NUc4aHRuTXNsdi1XOFF4ZkV6Q0JpclBwWHgxU3R4R1RZV1RDVnU5bTRaLWllUmc?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T15:08:34+00:00"
+  },
+  {
+   "t": "The Witcher 3 Remastered para o Nintendo Switch 2 pode ser desbloqueada gratuitamente, mesmo que você pegue uma cópia física do jogo emprestada com um amigo",
+   "l": "https://br.ign.com/the-witcher-3-wild-hunt-1/156521/the-witcher-3-remastered-para-o-nintendo-switch-2-pode-ser-desbloqueada-gratuitamente-mesmo-que-voce",
+   "r": "Todo mundo vai jogar The Witcher 3 Remastered",
+   "i": "https://sm.ign.com/ign_br/news/t/the-witche/the-witcher-3-remastered-nintendo-switch-2-can-be-unlocked-f_efj6.jpg",
+   "f": "ign-brasil",
+   "tm": "games",
+   "p": "2026-09-30T15:07:40+00:00"
+  },
+  {
+   "t": "EA Sports FC 27 para PS5 fica mais barato com cupom relâmpago da Amazon",
+   "l": "https://br.ign.com/descontos/156534/ea-sports-fc-27-para-ps5-fica-mais-barato-com-cupom-relampago-da-amazon",
+   "r": "Cupom de 10% reduz o preço do EA Sports FC 27 para PS5 por tempo limitado na Amazon!",
+   "i": "https://sm.ign.com/ign_br/screenshot/default/ea-sports-fc-27-playstation5-vzn3_361840_1nvk.jpg",
+   "f": "ign-brasil",
+   "tm": "games",
+   "p": "2026-09-30T14:59:48+00:00"
+  },
+  {
+   "t": "Surprisingly Complex Waves Reveal the Brain’s Inner Workings",
+   "l": "https://www.quantamagazine.org/surprisingly-complex-waves-reveal-the-brains-inner-workings-20260930/",
+   "r": "Unexpected patterns traveling across the human brain may be reorganizing its activity in real time. The post Surprisingly Complex Waves Reveal the Brain’s Inner Workings first appeared on Quanta Magazine",
+   "i": "https://www.quantamagazine.org/wp-content/uploads/2026/09/Thought-Geometry-cr.Mark-Belan-Default.webp",
+   "f": "quanta",
+   "tm": "ciencia",
+   "p": "2026-09-30T14:52:12+00:00"
+  },
+  {
+   "t": "Best early October Prime Day Pokémon deals 2026: 30th Celebration, Nintendo Switch, Lego - mashable.com",
+   "l": "https://news.google.com/rss/articles/CBMifkFVX3lxTE54UzNRMWd6RWdjYmk5WWlEelp4WnBiR05CTnRzVGt1b25HRUk0SkE1TUV1bDRTTUNKU3Y5MFBFcjhlZmIzVWJmQzl5cUZ0cDVkTFRkUW10RWtXa2FPZHRocUZSOUxRTU5MaHYxWm1OMjFIY1VuWU1RTW5ET0d0Zw?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T14:39:46+00:00"
+  },
+  {
+   "t": "Where to buy Pokemon TCG Delta Reign, the major new set - GamesRadar+",
+   "l": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOSXhrUF9YZVpSTWZNeUJBY1QxWUxodUg3ZTBJQ1k5N2R2R2d6aWExSW5BVl9mV2VXNjEwdGh2VFk3dDBvM2szOThJRW5fSHRqN0R0ZnBoSHA0Y3ZPNnN5RHhMT3YyZlRHb2hFb3k1blMxbXZKbHRoNXNYODhhakxsWWNjT3hranc?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon-tcg-en",
+   "tm": "pokemon-tcg",
+   "p": "2026-09-30T14:37:48+00:00"
+  },
+  {
+   "t": "Cerebras Systems’ Andrew Feldman on whether AI can keep scaling at TechCrunch Disrupt 2026",
+   "l": "https://techcrunch.com/2026/09/30/cerebras-systems-andrew-feldman-on-whether-ai-can-keep-scaling-at-techcrunch-disrupt-2026/",
+   "r": "At TechCrunch Disrupt 2026, Cerebras Systems CEO and co-founder Andrew Feldman will explore the growing demand for compute, energy, and infrastructure, how Cerebras is approaching those constraints differently, and what comes next if today’s AI hardware reaches its limits.",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T14:30:00+00:00"
+  },
+  {
+   "t": "Restate lands $20M as the need for durable infrastructure increases with AI agents",
+   "l": "https://techcrunch.com/2026/09/30/restate-lands-20m-as-the-need-for-durable-infrastructure-increases-with-ai-agents/",
+   "r": "Instead of building its durable execution engine on top of an external database, the company developed its own storage, replication, and redundancy layers. This architecture allows Restate to be exceptionally fast and lightweight.",
+   "i": "",
+   "f": "techcrunch-ia",
+   "tm": "ia",
+   "p": "2026-09-30T14:27:11+00:00"
+  },
+  {
+   "t": "Pokémon Legends: Z-A receberá nova edição física com jogo base e DLC em um único pacote - nintendoblast.com.br",
+   "l": "https://news.google.com/rss/articles/CBMizgFBVV95cUxNaFk5VUkycE5mOHlKeEtVNEZLYTF4aDZEbGNTYTVqVGY1b0cwZTZTZExKY21QZWRKdlZEWVFEQ0xaQnE2eERocDNDbk50NVBFdW5BOE0xelpCWlZUY2JiaHNyS0JpLXVVQXB2TFdHRTdjdmE5M1RYSXdXQU9QemhvY0FyRjc2bXN5SVI0U0Fma0prSGJwMWZqXy1POEFwOGpJMUZaZmdpZldKNkdLSURjb3Q4a21lZXdvaFBKQWJHQktjc3ZDSER0TW5QWlpKdw?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon",
+   "tm": "pokemon",
+   "p": "2026-09-30T14:26:56+00:00"
+  },
+  {
+   "t": "Mídia física de Pokémon Legends: Z-A – Nintendo Switch 2 Edition + Mega Dimension é anunciada e chega em outubro - Universo Nintendo",
+   "l": "https://news.google.com/rss/articles/CBMi0wFBVV95cUxNSjA1d3VDOVNxcU44RnJrQzJyWV9ndnp4Ti1JMS1lM1lkTHRkNDBjdW83ZWpZMldKcmhWREIwR2NwVlNJT242aUZSQkNOMkM0M0VjdkNkeGNhQmI5YnBlTE1hRU5ZTWhJQ3JGZWJ2ZHlNelZNVFBDMlBQRzdnUVJqOTZ5YS12dGF1ZTNnRERmUnlYUzJZMmxkajBpVElCcTYzQWR3WklOSDlJTF9PYk55RERqU2F3YTRTYjZRRHJ4aG9nRjV1bHZJcmZ1QUlBak5iekFR?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon",
+   "tm": "pokemon",
+   "p": "2026-09-30T13:53:33+00:00"
+  },
+  {
+   "t": "Pumpkaboo and Gourgeist coming to Pokémon Pokopia in spooky new event!",
+   "l": "https://pokejungle.net/2026/09/30/pumpkaboo-and-gourgeist-coming-to-pokemon-pokopia-in-spooky-new-event/",
+   "r": "A new event in Pokémon Pokopia has been announced for October, Pumpkaboo’s Sweet Surprises! It will run from Saturday, October 17, at 5:00 a.m. until Sunday, November 1, at 4:59 a.m. local time and adds Pumpkaboo and Gourgeist to the game. Players will need to befriend Pumpkaboo…",
+   "i": "https://pokejungle.net/wp-content/uploads/2026/09/pokemon-pokopia_2026-10_pumpkaboos-sweet-surprises-event-1024x576.jpg",
+   "f": "pokejungle",
+   "tm": "pokemon",
+   "p": "2026-09-30T13:31:11+00:00"
+  },
+  {
+   "t": "Junte pumpkin candy para Pumpkaboo em Pokémon Pokopia - Pokemon.com",
+   "l": "https://news.google.com/rss/articles/CBMikwFBVV95cUxOM0R5V1IzSWJQY2ZpaFZJdHp2LS1ITkE4V0xUSy13MVk0OEFmczNBdkxRbFVNOGY4WE9Fa1lvWTdLUXZnTFh0WmpSMnNRc3BzN0VLUFRHNGZzMkJFajJJMjJYak5sdTNNaTdIZlBtRkhIVWZkSHhsWDBLMWVZMjlrbVVjRXR3ZnBOODhrMjAtZWtZeWM?oc=5",
+   "r": "",
+   "i": "",
+   "f": "gn-pokemon",
+   "tm": "pokemon",
+   "p": "2026-09-30T13:21:43+00:00"
+  },
+  {
+   "t": "De volta para o futuro",
+   "l": "https://revistapesquisa.fapesp.br/de-volta-para-o-futuro/?utm_source=rss&utm_medium=rss&utm_campaign=de-volta-para-o-futuro",
+   "r": "Criado para repatriar a flora coletada por naturalistas europeus entre os séculos 18 e 20, o projeto Reflora completa 16 anos com quase 5 milhões de imagens produzidas e servindo de inspiração para a digitalização completa de um dos maiores herbários do mundo",
+   "i": "https://revistapesquisa.fapesp.br/wp-content/uploads/2026/09/RPF-reflora-darwin-2026-09-800.webp",
+   "f": "pesquisa-fapesp",
+   "tm": "ciencia",
+   "p": "2026-09-30T13:11:45+00:00"
+  },
+  {
+   "t": "Cannabis users were twice as likely to commit violence, review finds",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260930020255.htm",
+   "r": "A review of more than 265,000 people found that cannabis use was associated with higher rates of both committing violence and becoming a victim of it. The researchers say the link is significant but does not prove cannabis itself is the cause.",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-30T12:49:01+00:00"
+  },
+  {
+   "t": "A record-breaking X-ray flash may reveal the birth of a magnetar",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260930020252.htm",
+   "r": "Astronomers have found strong evidence that some mysterious, minutes-long X-ray flashes are produced when two neutron stars collide and create a magnetar. One record-setting event glowed in X-rays for nearly 10 minutes, potentially opening a new way to find these extreme cosmic…",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-30T12:27:27+00:00"
+  },
+  {
+   "t": "Mulberry may reshape gut bacteria and influence metabolism",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260928100551.htm",
+   "r": "Mulberry compounds may reshape the gut microbiome in ways that support intestinal health and metabolism, with some combinations showing especially strong effects in animal studies. However, the results vary depending on the plant part and processing method, and the benefits have…",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-30T11:45:42+00:00"
+  },
+  {
+   "t": "NASA's Perseverance Mars rover finds groundwater, lakes, and hot fluids in one place",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260928100537.htm",
+   "r": "NASA’s Perseverance rover has uncovered a surprisingly complicated history of water in Jezero Crater. Scientists expected the crater’s Margin Unit to contain lake sediments, but instead found ancient igneous rocks that were altered by water on at least three separate occasions.",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-30T11:34:31+00:00"
+  },
+  {
+   "t": "What's the intended difficulty for Gears of War: E-Day? \"I can tell you right now, it's Hardcore\" says The Coalition creative director",
+   "l": "https://www.eurogamer.net/gears-of-war-eday-difficulty-hardcore",
+   "r": "Xbox and The Coalition are making a big deal about Gears of War: E-Day's campaign, ahead of its Xbox and PC launch on 1st October. The game goes back in time to study the origins of the Locust scourge, placing you in the big, stompy shoes of a younger and more 'innocent' Marcus…",
+   "i": "https://assetsio.gnwcdn.com/gears-eday-difficulty.jpg?width=690&quality=85&format=jpg&auto=webp",
+   "f": "eurogamer",
+   "tm": "games",
+   "p": "2026-09-29T11:59:15+00:00"
+  },
+  {
+   "t": "This 245-million-year-old fossil still has its stomach and intestines",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260927225036.htm",
+   "r": "A 245-million-year-old marine reptile fossil preserves an astonishing amount of detail, including its stomach, liver, and intestines. The discovery reveals that Austronaga minuta was highly adapted for swimming even though its digestive system remained surprisingly simple.",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-29T11:39:27+00:00"
+  },
+  {
+   "t": "Brain scans reveal which disorders are linked to faster brain aging",
+   "l": "https://www.sciencedaily.com/releases/2026/09/260927225038.htm",
+   "r": "A massive MRI study found that Alzheimer’s disease, mild cognitive impairment, psychiatric disorders, and addiction are associated with distinct patterns of accelerated brain aging. The strongest effects appeared in Alzheimer’s and mild cognitive impairment, while ADHD and autis…",
+   "i": "",
+   "f": "sciencedaily",
+   "tm": "ciencia",
+   "p": "2026-09-29T11:01:18+00:00"
+  },
+  {
+   "t": "The Elder Scrolls Online is partly why Skyrim never got a Fallout: New Vegas-style spin-off, says Bethesda veteran",
+   "l": "https://www.eurogamer.net/the-elder-scrolls-online-skyrim-spin-off-fallout-new-vegas-bethesda",
+   "r": "Why did The Elder Scrolls 5: Skyrim never receive a spin-off like Bethesda's Fallout 3 did, with Fallout: New Vegas ? According to Skyrim co-lead designer Kurt Kuhlmann, it's because of The Elder Scrolls Online. Speaking to FRVR (via VGC ), the 20-year studio veteran said the MM…",
+   "i": "https://assetsio.gnwcdn.com/the-elder-scrolls-online-image-portal.jpg?width=690&quality=85&format=jpg&auto=webp",
+   "f": "eurogamer",
+   "tm": "games",
+   "p": "2026-09-29T10:44:39+00:00"
+  }
+ ]
+}

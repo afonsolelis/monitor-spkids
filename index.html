@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notícias</title>
+<!-- Pagina inicial publicada no GitHub Pages. As noticias vem do Supabase ao
+     abrir (rpc painel_noticias, ver supabase/noticias.sql); a coleta dos
+     feeds roda no pg_cron do proprio Supabase. -->
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11,11,11,0.10);
+  --hover: rgba(11,11,11,0.04);
+  --acento: #2a78d6;
+  --acento-wash: rgba(42,120,214,0.10);
+  --erro: #c2410c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255,255,255,0.10);
+    --hover: rgba(255,255,255,0.05);
+    --acento: #3987e5;
+    --acento-wash: rgba(57,135,229,0.14);
+    --erro: #fb923c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --border: rgba(255,255,255,0.10);
+  --hover: rgba(255,255,255,0.05);
+  --acento: #3987e5;
+  --acento-wash: rgba(57,135,229,0.14);
+  --erro: #fb923c;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  /* Noto Sans antes do generico: Chromium em Linux sem system-ui resolvido
+     desenhava o texto com altura zero. Nos outros sistemas o system-ui vence. */
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+}
+main { max-width: 880px; margin: 0 auto; padding: 20px 16px 64px; }
+[hidden] { display: none !important; }
+a { color: var(--acento); }
+
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 24px; }
+.abas a {
+  color: var(--ink-2); text-decoration: none; padding: 8px 12px; margin-bottom: -1px;
+  border-bottom: 2px solid transparent; font-weight: 500;
+}
+.abas a:hover { color: var(--ink); }
+.abas a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--acento); }
+
+h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); margin: 0 0 20px; }
+.aviso {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 20px; color: var(--ink-2);
+}
+
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.temas { display: flex; flex-wrap: wrap; gap: 6px; }
+.temas button {
+  font: inherit; font-size: 13px; color: var(--ink-2); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; cursor: pointer;
+}
+.temas button:hover { background: var(--hover); color: var(--ink); }
+.temas button[aria-pressed="true"] { background: var(--acento-wash); border-color: var(--acento); color: var(--ink); }
+.temas .qtd { color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
+input[type="search"] {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+  flex: 1 1 200px; min-width: 0;
+}
+
+.dia { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 28px 0 4px; }
+.dia:first-child { margin-top: 16px; }
+.item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px;
+  padding: 14px 0; border-bottom: 1px solid var(--grid);
+}
+.item h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+.item h2 a { color: var(--ink); text-decoration: none; }
+.item h2 a:hover { text-decoration: underline; }
+.item h2 a:visited { color: var(--ink-2); }
+.meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.meta .tema { color: var(--ink-2); }
+.meta .nova { color: var(--acento); font-weight: 600; }
+.resumo {
+  color: var(--ink-2); margin: 6px 0 0; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.item img {
+  width: 128px; height: 80px; object-fit: cover; border-radius: 6px;
+  background: var(--grid); display: block;
+}
+.mais { display: block; margin: 20px auto 0; }
+button.mais {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer;
+}
+button.mais:hover { background: var(--hover); }
+.vazio { color: var(--muted); padding: 32px; text-align: center; }
+
+.rodape { color: var(--muted); font-size: 12px; margin-top: 40px; }
+.rodape h3 { font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 0 0 6px; }
+.rodape ul { list-style: none; padding: 0; margin: 0 0 12px; columns: 2 220px; column-gap: 24px; }
+.rodape li { break-inside: avoid; margin-bottom: 2px; }
+.rodape .falha { color: var(--erro); }
+
+@media (max-width: 560px) {
+  .item { gap: 12px; }
+  .item img { width: 84px; height: 64px; }
+  .resumo { -webkit-line-clamp: 3; }
+}
+</style>
+</head>
+<body>
+<main>
+  <nav class="abas" aria-label="Seções">
+    <a href="./" aria-current="page">Notícias</a>
+    <a href="precos.html">Cartas 30 anos</a>
+  </nav>
+
+  <h1>Notícias</h1>
+  <p class="sub" id="sub">Carregando…</p>
+  <div class="aviso" id="aviso" hidden></div>
+
+  <div class="filtros">
+    <div class="temas" id="temas" role="group" aria-label="Tema"></div>
+    <input type="search" id="busca" placeholder="Buscar nas notícias" aria-label="Buscar nas notícias">
+  </div>
+
+  <div id="lista"></div>
+  <button type="button" class="mais" id="mais" hidden>Mostrar mais</button>
+
+  <footer class="rodape" id="rodape" hidden>
+    <h3>Fontes</h3>
+    <ul id="fontes"></ul>
+    <p>
+      Títulos e resumos vêm dos feeds RSS de cada site e são lidos a cada meia hora.
+      A notícia abre no site de origem. Pokémon em português vem da busca do Google Notícias.
+    </p>
+  </footer>
+</main>
+
+<script>
+// Leitura direta pela API REST do Supabase: uma chamada so, sem biblioteca.
+// A chave publicavel so le (ver supabase/noticias.sql).
+const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
+const SUPABASE_CHAVE = "sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ";
+
+const TEMAS = [
+  ["", "Tudo"],
+  ["tecnologia", "Tecnologia"],
+  ["ia", "IA"],
+  ["games", "Games"],
+  ["pokemon", "Pokémon"],
+  ["pokemon-tcg", "Pokémon TCG"],
+  ["ciencia", "Ciência"],
+];
+const NOME_TEMA = Object.fromEntries(TEMAS);
+const POR_PAGINA = 60;
+
+const $ = id => document.getElementById(id);
+const estado = { tema: "", busca: "", limite: POR_PAGINA };
+let noticias = [];
+let fontes = {};
+let visitaAnterior = 0;
+
+// localStorage pode faltar (aba anonima, bloqueio): so perde o "nova".
+function lerVisita() {
+  try {
+    visitaAnterior = Number(localStorage.getItem("noticias.visita")) || 0;
+    localStorage.setItem("noticias.visita", String(Date.now()));
+  } catch (e) { /* sem memoria entre visitas */ }
+}
+
+function sem_acento(s) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+// O Google Noticias poe o site no fim do titulo ("Titulo - Site"): o site
+// vira a fonte mostrada.
+function preparar(n) {
+  const fonte = fontes[n.f] || { nome: n.f };
+  let titulo = n.t;
+  let site = fonte.nome;
+  const m = n.f.startsWith("gn-") && n.t.match(/^(.*\S)\s+-\s+([^-]+)$/);
+  if (m) { titulo = m[1]; site = m[2].trim(); }
+  const quando = new Date(n.p);
+  return { ...n, titulo, site, quando, chave: sem_acento(titulo + " " + n.r + " " + site) };
+}
+
+const fmtHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const fmtDia = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+
+function rotuloDia(d) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+  const diff = Math.round((hoje - dia) / 86400000);
+  const nome = fmtDia.format(d);
+  if (diff === 0) return "Hoje · " + nome;
+  if (diff === 1) return "Ontem · " + nome;
+  return nome.charAt(0).toUpperCase() + nome.slice(1);
+}
+
+function filtradas() {
+  const termos = sem_acento(estado.busca).split(/\s+/).filter(Boolean);
+  return noticias.filter(n =>
+    (!estado.tema || n.tm === estado.tema) && termos.every(t => n.chave.includes(t)));
+}
+
+function desenharTemas() {
+  const contagem = {};
+  for (const n of noticias) contagem[n.tm] = (contagem[n.tm] || 0) + 1;
+  $("temas").replaceChildren(...TEMAS.map(([id, nome]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(estado.tema === id));
+    b.append(nome);
+    const q = document.createElement("span");
+    q.className = "qtd";
+    q.textContent = id ? contagem[id] || 0 : noticias.length;
+    b.append(q);
+    b.addEventListener("click", () => {
+      estado.tema = id;
+      estado.limite = POR_PAGINA;
+      history.replaceState(null, "", id ? "#" + id : location.pathname + location.search);
+      desenharTemas();
+      desenharLista();
+    });
+    return b;
+  }));
+}
+
+function desenharLista() {
+  const todas = filtradas();
+  const visiveis = todas.slice(0, estado.limite);
+  const partes = [];
+  let diaAtual = "";
+  for (const n of visiveis) {
+    const dia = n.quando.toDateString();
+    if (dia !== diaAtual) {
+      diaAtual = dia;
+      const h = document.createElement("h3");
+      h.className = "dia";
+      h.textContent = rotuloDia(n.quando);
+      partes.push(h);
+    }
+    partes.push(item(n));
+  }
+  if (!visiveis.length) {
+    const v = document.createElement("p");
+    v.className = "vazio";
+    v.textContent = noticias.length ? "Nenhuma notícia com esse filtro." : "Nenhuma notícia por enquanto.";
+    partes.push(v);
+  }
+  $("lista").replaceChildren(...partes);
+  const resto = todas.length - visiveis.length;
+  $("mais").hidden = resto <= 0;
+  $("mais").textContent = `Mostrar mais (${resto})`;
+}
+
+function item(n) {
+  const art = document.createElement("article");
+  art.className = "item";
+  const texto = document.createElement("div");
+
+  const h = document.createElement("h2");
+  const a = document.createElement("a");
+  a.href = n.l;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.textContent = n.titulo;
+  h.append(a);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  if (visitaAnterior && n.quando.getTime() > visitaAnterior) {
+    const nova = document.createElement("span");
+    nova.className = "nova";
+    nova.textContent = "nova · ";
+    meta.append(nova);
+  }
+  meta.append(n.site + " · ");
+  const tema = document.createElement("span");
+  tema.className = "tema";
+  tema.textContent = NOME_TEMA[n.tm] || n.tm;
+  meta.append(tema, " · " + fmtHora.format(n.quando));
+
+  texto.append(h, meta);
+  if (n.r) {
+    const p = document.createElement("p");
+    p.className = "resumo";
+    p.textContent = n.r;
+    texto.append(p);
+  }
+  art.append(texto);
+
+  if (n.i) {
+    const img = document.createElement("img");
+    img.src = n.i;
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+    // Imagem quebrada some em vez de deixar o retangulo vazio.
+    img.addEventListener("error", () => img.remove());
+    art.append(img);
+  }
+  return art;
+}
+
+function desenharFontes(lista) {
+  $("fontes").replaceChildren(...lista.map(f => {
+    const li = document.createElement("li");
+    li.textContent = `${f.nome} (${NOME_TEMA[f.tema] || f.tema})`;
+    if (f.erro) {
+      const e = document.createElement("span");
+      e.className = "falha";
+      e.textContent = " · falhou na última leitura";
+      e.title = f.erro;
+      li.append(e);
+    }
+    return li;
+  }));
+  $("rodape").hidden = false;
+}
+
+async function carregar() {
+  lerVisita();
+  const inicial = location.hash.slice(1);
+  if (NOME_TEMA[inicial] && inicial) estado.tema = inicial;
+  try {
+    const resp = await fetch(SUPABASE_URL + "/rest/v1/rpc/painel_noticias", {
+      method: "POST",
+      headers: { apikey: SUPABASE_CHAVE, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const dados = await resp.json();
+    fontes = Object.fromEntries(dados.fontes.map(f => [f.id, f]));
+    noticias = dados.noticias.map(preparar);
+    const atualizado = dados.gerado_em ? " · atualizado às " + fmtHora.format(new Date(dados.gerado_em)) : "";
+    $("sub").textContent = `Tecnologia, IA, games, Pokémon e ciência · ${dados.fontes.length} fontes${atualizado}`;
+    desenharFontes(dados.fontes);
+  } catch (e) {
+    $("sub").textContent = "Tecnologia, IA, games, Pokémon e ciência";
+    $("aviso").textContent = `Não consegui carregar as notícias (${e.message}). Tente recarregar a página.`;
+    $("aviso").hidden = false;
+  }
+  desenharTemas();
+  desenharLista();
+}
+
+$("busca").addEventListener("input", e => {
+  estado.busca = e.target.value;
+  estado.limite = POR_PAGINA;
+  desenharLista();
+});
+$("mais").addEventListener("click", () => {
+  estado.limite += POR_PAGINA;
+  desenharLista();
+});
+
+carregar();
+</script>
+</body>
+</html>

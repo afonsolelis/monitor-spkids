@@ -2,7 +2,7 @@
 # Trunk-based: o unico destino de push e a main. Branch nova no remoto e
 # recusada; apagar branch remota (limpeza) e permitido.
 #
-# Se o push mexe no painel ou nos testes visuais, roda a regressao visual
+# Se o push mexe numa pagina do site ou nos testes visuais, roda a regressao visual
 # antes: ela e pixel perfect e depende das fontes desta maquina, por isso roda
 # aqui e nao no CI.
 set -euo pipefail
@@ -22,12 +22,12 @@ while read -r _ local_sha remote_ref remote_sha; do
   fi
 done
 
-if printf '%s' "$mudados" | grep -Eq '^(painel_precos\.html|playwright\.config\.js|package(-lock)?\.json|tests/visual/)'; then
+if printf '%s' "$mudados" | grep -Eq '^(index\.html|painel_precos\.html|playwright\.config\.js|package(-lock)?\.json|tests/visual/)'; then
   if [ ! -d node_modules/@playwright/test ]; then
-    echo "push recusado: o painel mudou e o Playwright nao esta instalado (rode ./instalar.sh)." >&2
+    echo "push recusado: o site mudou e o Playwright nao esta instalado (rode ./instalar.sh)." >&2
     exit 1
   fi
-  echo "==> painel mudou: rodando a regressao visual (npm run test:visual)"
+  echo "==> site mudou: rodando a regressao visual (npm run test:visual)"
   if ! npm run --silent test:visual -- --reporter=line; then
     echo "push recusado: a regressao visual falhou. Veja: npm run test:visual:relatorio" >&2
     exit 1
