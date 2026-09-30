@@ -12,8 +12,6 @@ abrir). Nada roda em máquina local.
 - `supabase/noticias.sql`: coleta dos feeds RSS/Atom de `public.fontes` dentro
   do Supabase (pg_cron às :07 e :37). Pública só `painel_noticias()`.
 - `index.html`: a aba Notícias, na raiz do Pages.
-- `resumo_noticias.py`: resumo diário por e-mail (GitHub Actions,
-  `resumo.yml`), lendo a mesma `painel_noticias()`.
 - `supabase/coleta_precos.sql`: coleta de preço das cartas de 30 anos
   (pg_cron às :17, chave da PokéWallet no Vault). Públicas só
   `painel_precos()` e `atualizar_precos()`.
@@ -68,16 +66,14 @@ O `instalar.sh` liga `git config core.hooksPath .githooks`:
 Não contornar com `--no-verify`. Se um hook recusou, corrija a causa.
 
 Depois do push, o `ci.yml` repete as checagens no GitHub (mensagens do push,
-gitleaks no histórico, ruff, shellcheck, actionlint) e o agente `devops`
+gitleaks no histórico, shellcheck, actionlint) e o agente `devops`
 analisa o resultado com `scripts/analisar_push.sh`.
 
 ## Segredos
 
 O repositório é **público**. Nunca vão para o git nem para a saída de comando:
 
-- `~/.config/spkids/env`: SMTP (o que vale para o resumo são os segredos do
-  repositório no GitHub) e `POKEWALLET_KEY` (cópia local; a que vale está no
-  Vault do Supabase, segredo `pokewallet`).
+- A chave da PokéWallet: só no Vault do Supabase (segredo `pokewallet`).
 - `~/.config/spkids/supabase-db`: URL do Postgres com senha. Use sempre
   `psql "$(cat ~/.config/spkids/supabase-db)"`, sem imprimir o conteúdo.
 - A chave `sb_publishable_...` que está no painel é pública de propósito.
@@ -88,10 +84,8 @@ O repositório é **público**. Nunca vão para o git nem para a saída de coman
 |---|---|
 | `index.html`, `painel_precos.html` | `npm run test:visual` e peça a revisão do agente `ux` |
 | `supabase/*.sql` | o script inteiro no banco (`psql -1 -v ON_ERROR_STOP=1 -f`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
-| `resumo_noticias.py` | `python3 -m py_compile resumo_noticias.py` e `python3 resumo_noticias.py --sem-enviar` |
 | `*.sh`, `.githooks/*` | `bash -n` e `shellcheck` |
 | `.github/workflows/*` | `uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint` (com o shellcheck junto, senão os blocos `run:` não são checados) |
-| `*.py` (lint) | `ruff check ./*.py` (config em `ruff.toml`) |
 
 Mudança intencional no visual: atualize as referências com
 `npm run test:visual:atualizar` **no mesmo commit** da mudança, e só depois de
@@ -111,10 +105,9 @@ algo quebrou, corrige a esteira ou devolve para o `dev`.
 
 ## Estilo
 
-- Nomes e comentários em português. Nos `.py`, `.sql` e `.sh`, comentários sem
+- Nomes e comentários em português. Nos `.sql` e `.sh`, comentários sem
   acento (como o código existente); textos para o usuário (HTML, README,
-  e-mail) com acento.
+  mensagens) com acento.
 - Comentário explica o porquê, não repete o código.
-- Python: só biblioteca padrão.
 - Páginas: cada uma um arquivo HTML só, sem build. Cores só pelos tokens do `:root`
   (claro e escuro), layout sem rolagem horizontal a partir de 320 px.

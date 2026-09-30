@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RUFF: "0.16.9"
   SHELLCHECK: "0.11.0.1"
   ACTIONLINT: "1.7.12.25"
   GITLEAKS: "8.30.1"
@@ -101,12 +100,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install "ruff==${RUFF}" "shellcheck-py==${SHELLCHECK}" "actionlint-py==${ACTIONLINT}"
-
-      - name: Python
-        run: |
-          python -m py_compile ./*.py
-          ruff check --output-format github ./*.py
+      - run: pip install "shellcheck-py==${SHELLCHECK}" "actionlint-py==${ACTIONLINT}"
 
       - name: Shell
         run: shellcheck ./*.sh scripts/*.sh .githooks/*

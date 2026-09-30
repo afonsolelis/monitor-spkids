@@ -1,8 +1,7 @@
 -- Coleta de noticias dentro do Supabase, no mesmo molde da coleta de precos:
 -- a funcao coleta.coletar_noticias() le os feeds RSS/Atom de public.fontes,
 -- grava em public.noticias e o pg_cron roda a cada meia hora. O site le tudo
--- por rpc('painel_noticias') e o resumo diario por e-mail (resumo_noticias.py,
--- no GitHub Actions) usa a mesma chamada.
+-- por rpc('painel_noticias').
 --
 -- Rodar inteiro no SQL Editor do Supabase (ou psql -1 -f). Pode rodar de novo
 -- sem estragar nada: as fontes sao atualizadas pelo id.

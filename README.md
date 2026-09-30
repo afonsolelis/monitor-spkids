@@ -5,15 +5,14 @@
 Um site com duas abas:
 
 - **Notícias**: tecnologia, IA, games, Pokémon, Pokémon TCG e ciência, lidas
-  dos feeds RSS de 24 fontes a cada meia hora. Todo dia às 7h chega um resumo
-  por e-mail com os destaques das últimas 24 horas.
+  dos feeds RSS de 24 fontes a cada meia hora.
 - **Cartas 30 anos** (`precos.html`): o preço de todas as cartas das duas
   edições de 30 anos, com a evolução, a tendência e as marcações de "tenho" e
   "a chegar". Fica até a coleção estar completa.
 
 Nada roda nesta máquina. As duas coletas rodam no `pg_cron` do Supabase
-(projeto `lwamaovuxcevsjfvtqhf`), o GitHub Pages serve só as páginas (que leem
-do Supabase ao abrir) e o resumo por e-mail roda no GitHub Actions.
+(projeto `lwamaovuxcevsjfvtqhf`) e o GitHub Pages serve só as páginas (que leem
+do Supabase ao abrir).
 
 > Até 30/09/2026 este repositório também monitorava a SP Kids e a Copag B2B
 > esperando a coleção de 30 anos entrar em estoque, com compra automática. A
@@ -24,7 +23,6 @@ do Supabase ao abrir) e o resumo por e-mail roda no GitHub Actions.
 | Coleta de notícias | pg_cron no Supabase (`7,37 * * * *`) | `supabase/noticias.sql` |
 | Coleta de preços | pg_cron no Supabase (`17 * * * *`) | `supabase/coleta_precos.sql` |
 | Site | GitHub Pages | `index.html`, `painel_precos.html` |
-| Resumo por e-mail | GitHub Actions, 7h de Brasília | `resumo_noticias.py`, `.github/workflows/resumo.yml` |
 | Checagem diária das coletas | GitHub Actions | `.github/workflows/coleta.yml` |
 
 ---
@@ -72,25 +70,6 @@ update public.fontes set ativa = false where id = 'eurogamer';
 - Agrupado por dia, 60 por vez, 7 dias para trás.
 - Marca como "nova" o que chegou desde a sua última visita (guardado no navegador).
 - A notícia abre no site de origem.
-
-### Resumo por e-mail
-
-`resumo_noticias.py` lê a mesma `rpc('painel_noticias')` do site, separa as
-notícias das últimas 24 horas por tema (até 10 por tema, Pokémon TCG primeiro)
-e manda um e-mail só. Se não houver nenhuma notícia em 24 horas, falha: é
-sinal de que a coleta parou, e o GitHub avisa.
-
-O SMTP vem de segredos do repositório (Gmail com Senha de App, gerada em
-https://myaccount.google.com/apppasswords):
-
-```bash
-gh secret set SMTP_USUARIO
-gh secret set SMTP_SENHA
-gh secret set RESUMO_PARA
-```
-
-Para testar sem mandar nada: `python3 resumo_noticias.py --sem-enviar`. Para
-mandar agora: `gh workflow run resumo.yml`.
 
 ### Acompanhar
 
@@ -224,7 +203,7 @@ segredos, o que rodar antes de commitar) no [AGENTS.md](AGENTS.md). Os agentes
 encontra por `.claude/agents`.
 
 A cada push, o workflow `CI` confere as mensagens (Conventional Commits),
-procura segredo no histórico (gitleaks) e roda ruff, shellcheck e actionlint.
+procura segredo no histórico (gitleaks) e roda shellcheck e actionlint.
 Para ver o resultado de um push, o deploy do Pages e a saúde do Supabase:
 
 ```bash
@@ -246,4 +225,3 @@ desktop e celular, tema claro e escuro.
 | Caminho | Conteúdo |
 |---|---|
 | `~/.config/spkids/supabase-db` | URL do Postgres com senha (para `psql` e `scripts/analisar_push.sh`) |
-| `~/.config/spkids/env` | SMTP para testar o resumo daqui (ver `env.exemplo`), permissão `600` |

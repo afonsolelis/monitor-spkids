@@ -1,22 +1,10 @@
 #!/usr/bin/env bash
 # Prepara esta maquina para mexer no repositorio: hooks do git e Playwright
 # dos testes visuais. Nada roda aqui de forma agendada: as coletas rodam no
-# pg_cron do Supabase e o resumo por e-mail no GitHub Actions.
+# pg_cron do Supabase.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_DIR="$HOME/.config/spkids"
-
-# ------------------------------------------------------------------ pastas
-echo "==> credenciais locais"
-mkdir -p "$ENV_DIR"
-if [ -f "$ENV_DIR/env" ]; then
-  echo "    $ENV_DIR/env ja existe, mantido"
-else
-  cp "$REPO/env.exemplo" "$ENV_DIR/env"
-  chmod 600 "$ENV_DIR/env"
-  echo "    criado $ENV_DIR/env (so para testar o resumo por e-mail daqui)"
-fi
 
 # ---------------------------------------------------------------- git/harness
 # Hooks do repositorio (trunk-based e Conventional Commits, ver AGENTS.md) e,

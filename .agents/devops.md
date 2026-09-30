@@ -15,9 +15,8 @@ conservador para mexer.
 | `.githooks/pre-commit` | commit só na main; bloqueia segredo no diff |
 | `.githooks/commit-msg` | Conventional Commits |
 | `.githooks/pre-push` | push só para a main; regressão visual se uma página do site mudou |
-| `.github/workflows/ci.yml` (todo push) | trunk + mensagens do push, gitleaks no histórico, ruff, shellcheck, actionlint, sintaxe das páginas |
+| `.github/workflows/ci.yml` (todo push) | trunk + mensagens do push, gitleaks no histórico, shellcheck, actionlint, sintaxe das páginas |
 | `.github/workflows/site.yml` (push nas páginas) | publica `index.html` na raiz e `painel_precos.html` como `precos.html` no GitHub Pages |
-| `.github/workflows/resumo.yml` (diário, 10:00 UTC) | resumo das notícias por e-mail; segredos `SMTP_USUARIO`, `SMTP_SENHA`, `RESUMO_PARA` |
 | `.github/workflows/coleta.yml` (diário, 11:47 UTC) | falha se a última coleta do Supabase tem mais de 3 h |
 | Supabase `pg_cron` | `coleta-noticias` (:07 e :37), `coleta-precos` (:17), `compacta-precos`, `limpa-noticias` e `limpa-cron` (diários) |
 
