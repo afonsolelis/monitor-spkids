@@ -1,59 +1,26 @@
 #!/usr/bin/env bash
-# Prepara o monitor nesta maquina: ambiente Python, credenciais e cron.
+# Prepara esta maquina para mexer no repositorio: hooks do git e Playwright
+# dos testes visuais. Nada roda aqui de forma agendada: as coletas rodam no
+# pg_cron do Supabase e o resumo por e-mail no GitHub Actions.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="$HOME/.local/state/spkids"
 ENV_DIR="$HOME/.config/spkids"
 
-# ---------------------------------------------------------------- ambiente
-# Distribuicoes Debian/Ubuntu costumam vir sem o pacote python3-venv, entao
-# tentamos em ordem: uv, venv normal, venv sem pip, e por fim o Python do
-# sistema. O rodar_monitor.sh usa .venv/bin/python se existir, senao python3.
-echo "==> ambiente Python"
-instalou=""
-
-if command -v uv >/dev/null 2>&1; then
-  if uv venv "$REPO/.venv" >/dev/null 2>&1 &&
-     VIRTUAL_ENV="$REPO/.venv" uv pip install --quiet -r "$REPO/requirements.txt"; then
-    instalou="uv"
-  fi
-fi
-
-if [ -z "$instalou" ] && python3 -m venv "$REPO/.venv" >/dev/null 2>&1; then
-  if "$REPO/.venv/bin/pip" install --quiet -r "$REPO/requirements.txt"; then
-    instalou="venv"
-  fi
-fi
-
-if [ -z "$instalou" ]; then
-  rm -rf "$REPO/.venv"
-  if python3 -c "import requests" 2>/dev/null; then
-    echo "    sem venv, mas o Python do sistema ja tem requests — seguindo assim"
-    instalou="sistema"
-  else
-    echo "ERRO: nao consegui preparar o ambiente." >&2
-    echo "  instale um destes:  sudo apt install python3-venv   |   pip install --user requests" >&2
-    exit 1
-  fi
-fi
-echo "    via $instalou"
-
 # ------------------------------------------------------------------ pastas
-echo "==> pastas"
-mkdir -p "$LOG_DIR" "$ENV_DIR" "$HOME/.cache"
-
+echo "==> credenciais locais"
+mkdir -p "$ENV_DIR"
 if [ -f "$ENV_DIR/env" ]; then
   echo "    $ENV_DIR/env ja existe, mantido"
 else
   cp "$REPO/env.exemplo" "$ENV_DIR/env"
   chmod 600 "$ENV_DIR/env"
-  echo "    criado $ENV_DIR/env — EDITE e coloque a Senha de App"
+  echo "    criado $ENV_DIR/env (so para testar o resumo por e-mail daqui)"
 fi
 
 # ---------------------------------------------------------------- git/harness
 # Hooks do repositorio (trunk-based e Conventional Commits, ver AGENTS.md) e,
-# se houver Node, o Playwright dos testes visuais do painel.
+# se houver Node, o Playwright dos testes visuais do site.
 echo "==> hooks do git"
 git -C "$REPO" config core.hooksPath .githooks
 echo "    core.hooksPath = .githooks"
@@ -62,56 +29,18 @@ if command -v npm >/dev/null 2>&1; then
   if (cd "$REPO" && npm install --no-fund --no-audit --silent && npx playwright install chromium >/dev/null); then
     echo "    pronto: npm run test:visual"
   else
-    echo "    falhou; os monitores funcionam sem isso"
+    echo "    falhou; o resto funciona sem isso"
   fi
 fi
 
-# ------------------------------------------------------------------- teste
-echo "==> teste"
-"$REPO/rodar_monitor.sh" || true
-
-# -------------------------------------------------------------------- cron
-# Os monitores de loja a cada 15 minutos. A linha e reconhecida pelo comando,
-# entao rodar de novo nao duplica e uma instalacao antiga e atualizada. A coleta
-# de precos das cartas nao entra aqui: roda no pg_cron do Supabase.
-instalar_cron() {  # $1 = linha desejada, $2 = trecho que identifica a linha, $3 = comentario
-  local atual
-  atual="$(crontab -l 2>/dev/null || true)"
-  if printf '%s\n' "$atual" | grep -Fxq "$1"; then
-    echo "    ja instalado: $3"
-  elif printf '%s\n' "$atual" | grep -v '^#' | grep -Fq "$2"; then
-    echo "    atualizando: $3"
-    # ENVIRON em vez de -v: o awk interpreta barras invertidas passadas por -v.
-    printf '%s\n' "$atual" | TRECHO="$2" LINHA="$1" awk \
-      '$0 !~ /^#/ && index($0, ENVIRON["TRECHO"]) { print ENVIRON["LINHA"]; next } { print }' | crontab -
-  else
-    echo "    instalando: $3"
-    printf '%s\n%s\n%s\n' "$atual" "# $3" "$1" | sed '/./,$!d' | crontab -
-  fi
-}
-
-echo "==> cron"
-MONITOR="$REPO/rodar_monitor.sh"
-# Uma linha ja ajustada a mao (outra frequencia, so uma loja porque a outra roda
-# em outro lugar) fica como esta: instalar a padrao por cima duplicaria alertas.
-if crontab -l 2>/dev/null | grep -v '^#' | grep -Fq "$MONITOR "; then
-  echo "    ja existe uma linha do monitor no crontab; mantida como esta"
-else
-  instalar_cron "*/5 * * * * $MONITOR >> $LOG_DIR/monitor.log 2>&1" \
-    "$MONITOR >>" "Monitor SP Kids + Copag: colecao de 30 anos de Pokemon (15 min)."
-fi
-
-# ---------------------------------------------- servidor do painel (antigo)
-# O painel agora vive no GitHub Pages e le do Supabase; o servidor local que
-# servia em 127.0.0.1:8787 saiu. Remove o servico de quem ja tinha instalado.
-if [ -f "$HOME/.config/systemd/user/painel-precos.service" ]; then
-  echo "==> removendo o servidor local do painel (painel-precos.service)"
-  systemctl --user disable --now painel-precos.service >/dev/null 2>&1 || true
-  rm -f "$HOME/.config/systemd/user/painel-precos.service"
-  systemctl --user daemon-reload >/dev/null 2>&1 || true
+# ------------------------------------------------- monitores de loja (antigos)
+# Os monitores da SP Kids e da Copag sairam do projeto. Tira do crontab as
+# linhas de quem ainda tinha instalado.
+if crontab -l 2>/dev/null | grep -Fq "$REPO/rodar_monitor.sh"; then
+  echo "==> removendo os monitores de loja do crontab"
+  crontab -l | grep -vF "$REPO/rodar_monitor.sh" | grep -viE '^# *(monitor sp kids|preco das cartas)' | crontab -
 fi
 
 echo
-echo "pronto. falta so editar $ENV_DIR/env com a Senha de App do Gmail."
-echo "log: $LOG_DIR/monitor.log"
-echo "painel de precos: https://afonsolelis.github.io/monitor-spkids/"
+echo "pronto."
+echo "site: https://afonsolelis.github.io/monitor-spkids/"
