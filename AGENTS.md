@@ -6,17 +6,21 @@ especializados ficam em [`.agents/`](.agents/).
 
 ## O projeto
 
-- `monitor_spkids.py` e `monitor_copag.py`: avisam por e-mail quando a coleção
-  Pokémon 30 anos aparece/entra em estoque. A SP Kids (com a compra
-  automática) roda no cron de uma máquina de casa (`rodar_monitor.sh`, 5 min):
-  o Cloudflare da loja barra IP de datacenter, então não vai para a Render. A
-  Copag roda na Render. Compra ligada em uma máquina só (estado é local).
-- `supabase/coleta_precos.sql`: coleta de preço das cartas dentro do Supabase
-  (pg_cron às :17, chave da PokéWallet no Vault). Funções internas no schema
-  `coleta`, fora da API; públicas só `painel_precos()` e `atualizar_precos()`.
-- `painel_precos.html`: o painel publicado no GitHub Pages. É a casca: lê tudo
-  do Supabase ao abrir.
-- `tests/visual/`: regressão visual pixel a pixel do painel (Playwright).
+Um site no GitHub Pages com duas abas, as duas só casca (leem do Supabase ao
+abrir). Nada roda em máquina local.
+
+- `supabase/noticias.sql`: coleta dos feeds RSS/Atom de `public.fontes` dentro
+  do Supabase (pg_cron às :07 e :37). Pública só `painel_noticias()`.
+- `index.html`: a aba Notícias, na raiz do Pages.
+- `resumo_noticias.py`: resumo diário por e-mail (GitHub Actions,
+  `resumo.yml`), lendo a mesma `painel_noticias()`.
+- `supabase/coleta_precos.sql`: coleta de preço das cartas de 30 anos
+  (pg_cron às :17, chave da PokéWallet no Vault). Públicas só
+  `painel_precos()` e `atualizar_precos()`.
+- `painel_precos.html`: a aba Cartas 30 anos, publicada como `precos.html`.
+  Fica até a coleção estar completa.
+- Funções internas das duas coletas no schema `coleta`, fora da API.
+- `tests/visual/`: regressão visual pixel a pixel das duas páginas (Playwright).
 
 Detalhes no [README](README.md).
 
@@ -44,8 +48,8 @@ Toda mensagem segue [Conventional Commits](https://www.conventionalcommits.org/p
 - **Tipos**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
   `build`, `ci`, `chore`, `revert`. Mudança que quebra algo: `!` depois do
   tipo/escopo (`feat(coleta)!: ...`) e `BREAKING CHANGE:` no corpo.
-- **Escopos** usados aqui: `painel`, `coleta`, `supabase`, `monitor`,
-  `copag`, `spkids`, `harness`, `ci`, `docs`. Minúsculos.
+- **Escopos** usados aqui: `noticias`, `resumo`, `site`, `painel`, `coleta`,
+  `supabase`, `harness`, `ci`, `docs`. Minúsculos.
 - **Descrição** em português, no presente, começando em minúscula, sem ponto
   final, primeira linha com até 72 caracteres.
   Ex.: `fix(coleta): tolera página vazia da PokéWallet`.
@@ -59,7 +63,7 @@ O `instalar.sh` liga `git config core.hooksPath .githooks`:
 |---|---|
 | `pre-commit` | commit fora da `main`; segredo no diff (chave `pk_live_`, URL do Postgres com senha, chave secreta do Supabase) |
 | `commit-msg` | mensagem fora do Conventional Commits ou com primeira linha > 72 caracteres |
-| `pre-push` | push para qualquer ref remota que não seja a `main`; push que mexe no painel com a regressão visual falhando |
+| `pre-push` | push para qualquer ref remota que não seja a `main`; push que mexe nas páginas com a regressão visual falhando |
 
 Não contornar com `--no-verify`. Se um hook recusou, corrija a causa.
 
@@ -71,8 +75,9 @@ analisa o resultado com `scripts/analisar_push.sh`.
 
 O repositório é **público**. Nunca vão para o git nem para a saída de comando:
 
-- `~/.config/spkids/env`: SMTP e `POKEWALLET_KEY` (cópia local; a que vale
-  está no Vault do Supabase, segredo `pokewallet`).
+- `~/.config/spkids/env`: SMTP (o que vale para o resumo são os segredos do
+  repositório no GitHub) e `POKEWALLET_KEY` (cópia local; a que vale está no
+  Vault do Supabase, segredo `pokewallet`).
 - `~/.config/spkids/supabase-db`: URL do Postgres com senha. Use sempre
   `psql "$(cat ~/.config/spkids/supabase-db)"`, sem imprimir o conteúdo.
 - A chave `sb_publishable_...` que está no painel é pública de propósito.
@@ -81,12 +86,12 @@ O repositório é **público**. Nunca vão para o git nem para a saída de coman
 
 | Mexeu em | Rode |
 |---|---|
-| `painel_precos.html` | `npm run test:visual` e peça a revisão do agente `ux` |
+| `index.html`, `painel_precos.html` | `npm run test:visual` e peça a revisão do agente `ux` |
 | `supabase/*.sql` | o script inteiro no banco (`psql -1 -v ON_ERROR_STOP=1 -f`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
-| `monitor_*.py` | `.venv/bin/python -m py_compile monitor_*.py` e uma execução com `--sem-estado` |
+| `resumo_noticias.py` | `python3 -m py_compile resumo_noticias.py` e `python3 resumo_noticias.py --sem-enviar` |
 | `*.sh`, `.githooks/*` | `bash -n` e `shellcheck` |
 | `.github/workflows/*` | `uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint` (com o shellcheck junto, senão os blocos `run:` não são checados) |
-| `monitor_*.py` (lint) | `ruff check monitor_*.py` (config em `ruff.toml`) |
+| `*.py` (lint) | `ruff check ./*.py` (config em `ruff.toml`) |
 
 Mudança intencional no visual: atualize as referências com
 `npm run test:visual:atualizar` **no mesmo commit** da mudança, e só depois de
@@ -97,10 +102,10 @@ olhar as imagens novas.
 | Agente | Quando usar |
 |---|---|
 | [`dev`](.agents/dev.md) | implementar, corrigir ou refatorar qualquer parte do projeto |
-| [`ux`](.agents/ux.md) | revisar pixel a pixel toda mudança visível no painel, com o Playwright |
+| [`ux`](.agents/ux.md) | revisar pixel a pixel toda mudança visível nas páginas, com o Playwright |
 | [`devops`](.agents/devops.md) | analisar todo push (CI, deploy, saúde do Supabase), investigar falhas e manter a esteira |
 
-Fluxo: `dev` implementa → `ux` revisa (se mexeu no painel) → `dev` corrige o
+Fluxo: `dev` implementa → `ux` revisa (se mexeu numa página) → `dev` corrige o
 que o `ux` apontar → commit e push na main → `devops` analisa o push e, se
 algo quebrou, corrige a esteira ou devolve para o `dev`.
 
@@ -110,6 +115,6 @@ algo quebrou, corrige a esteira ou devolve para o `dev`.
   acento (como o código existente); textos para o usuário (HTML, README,
   e-mail) com acento.
 - Comentário explica o porquê, não repete o código.
-- Python: só biblioteca padrão + o que está em `requirements.txt`.
-- Painel: um arquivo HTML só, sem build. Cores só pelos tokens do `:root`
+- Python: só biblioteca padrão.
+- Páginas: cada uma um arquivo HTML só, sem build. Cores só pelos tokens do `:root`
   (claro e escuro), layout sem rolagem horizontal a partir de 320 px.

@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Desenvolvedor do monitor-spkids. Use para implementar, corrigir ou refatorar qualquer parte do projeto (monitores Python, coleta SQL no Supabase, painel HTML, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
+description: Desenvolvedor do monitor-spkids (site de notícias + painel das cartas 30 anos). Use para implementar, corrigir ou refatorar qualquer parte do projeto (coletas SQL no Supabase, páginas HTML, resumo por e-mail em Python, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
 ---
 
 Você é o desenvolvedor deste repositório. Siga o `AGENTS.md` da raiz: ele manda
@@ -36,12 +36,13 @@ em git, commits, segredos e verificação. Este arquivo acrescenta como trabalha
     `set statement_timeout` na função (o `anon` tem 3 s);
   - segredo só pelo Vault (`vault.decrypted_secrets`), nunca em URL nem em
     mensagem de erro.
-- **Painel**: um HTML só, sem build nem dependência nova além do supabase-js.
+- **Páginas** (`index.html`, `painel_precos.html`): cada uma um HTML só, sem build
+  nem dependência nova (o painel usa o supabase-js; as notícias, `fetch` puro).
   Cores só por tokens do `:root`, com os dois temas. DOM montado com
   `createElement`/`textContent` (nada de `innerHTML` com dado externo).
   Todo estado visível: carregando, erro, vazio.
-- **Python**: biblioteca padrão + `requirements.txt`. Códigos de saída
-  documentados no README.
+- **Python**: só biblioteca padrão (o `resumo_noticias.py` roda no Actions
+  sem instalar nada).
 - **Shell**: `set -euo pipefail`, aspas em toda variável.
 
 ## Verificar

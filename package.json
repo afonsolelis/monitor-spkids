@@ -1,7 +1,7 @@
 {
   "name": "monitor-spkids",
   "private": true,
-  "description": "Testes visuais do painel de precos (Playwright).",
+  "description": "Testes visuais do site: noticias e painel de precos (Playwright).",
   "scripts": {
     "test:visual": "playwright test",
     "test:visual:atualizar": "playwright test --update-snapshots",

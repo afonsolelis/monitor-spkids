@@ -105,8 +105,8 @@ jobs:
 
       - name: Python
         run: |
-          python -m py_compile monitor_*.py
-          ruff check --output-format github monitor_*.py
+          python -m py_compile ./*.py
+          ruff check --output-format github ./*.py
 
       - name: Shell
         run: shellcheck ./*.sh scripts/*.sh .githooks/*
@@ -114,15 +114,18 @@ jobs:
       - name: Workflows
         run: actionlint -color
 
-      - name: Painel e testes (sintaxe)
+      - name: Páginas e testes (sintaxe)
         run: |
           node --check playwright.config.js tests/visual/*.js
           python - <<'PY'
           import json, pathlib, re
-          html = pathlib.Path("painel_precos.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
-          assert scripts, "painel sem <script> inline"
-          pathlib.Path("/tmp/painel.js").write_text("\n".join(scripts), encoding="utf-8")
-          json.loads(pathlib.Path("tests/visual/fixtures/painel.json").read_text(encoding="utf-8"))
+          for pagina in ("index.html", "painel_precos.html"):
+              html = pathlib.Path(pagina).read_text(encoding="utf-8")
+              scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+              assert scripts, f"{pagina} sem <script> inline"
+              pathlib.Path(f"/tmp/{pagina}.js").write_text("\n".join(scripts), encoding="utf-8")
+          for fixture in pathlib.Path("tests/visual/fixtures").glob("*.json"):
+              json.loads(fixture.read_text(encoding="utf-8"))
           PY
-          node --check /tmp/painel.js
+          node --check /tmp/index.html.js
+          node --check /tmp/painel_precos.html.js

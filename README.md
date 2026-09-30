@@ -1,179 +1,109 @@
-# Monitor SP Kids + Copag — coleção Pokémon 30 anos
+# Notícias + cartas Pokémon 30 anos
 
-Avisa por e-mail quando a coleção de 30 anos de Pokémon aparecer em duas lojas:
+**https://afonsolelis.github.io/monitor-spkids/**
 
-- **SP Kids Distribuidora**: quando a coleção for listada.
-- **Copag B2B** (`b2b.copagloja.com.br/pokemon`): a coleção já está cadastrada,
-  mas sem estoque. O aviso sai quando algum item **entra em estoque**.
+Um site com duas abas:
 
-Roda a cada 5 minutos pelo cron, sem precisar de login em nenhum dos dois sites.
+- **Notícias**: tecnologia, IA, games, Pokémon, Pokémon TCG e ciência, lidas
+  dos feeds RSS de 24 fontes a cada meia hora. Todo dia às 7h chega um resumo
+  por e-mail com os destaques das últimas 24 horas.
+- **Cartas 30 anos** (`precos.html`): o preço de todas as cartas das duas
+  edições de 30 anos, com a evolução, a tendência e as marcações de "tenho" e
+  "a chegar". Fica até a coleção estar completa.
 
-À parte, o Supabase grava de hora em hora o preço de todas as cartas das duas
-edições (191 cartas), e um painel no GitHub Pages mostra a evolução, a tendência
-de cada carta e uma caixa para marcar as que você já tem. Veja
-[Preço das cartas](#preço-das-cartas).
+Nada roda nesta máquina. As duas coletas rodam no `pg_cron` do Supabase
+(projeto `lwamaovuxcevsjfvtqhf`), o GitHub Pages serve só as páginas (que leem
+do Supabase ao abrir) e o resumo por e-mail roda no GitHub Actions.
 
----
+> Até 30/09/2026 este repositório também monitorava a SP Kids e a Copag B2B
+> esperando a coleção de 30 anos entrar em estoque, com compra automática. A
+> compra foi feita e os monitores saíram; estão no histórico do git.
 
-## Como rodar
-
-### 1. Clonar e instalar
-
-```bash
-git clone git@github.com:afonsolelis/monitor-spkids.git
-cd monitor-spkids
-./instalar.sh
-```
-
-O `instalar.sh` prepara tudo: cria o ambiente Python (tenta `uv`, depois
-`venv`, e no pior caso usa o Python do sistema), cria as pastas, roda um teste
-e instala o cron a cada 5 minutos. Rodar de novo é seguro — ele não duplica o
-cron nem sobrescreve suas credenciais.
-
-### 2. Colocar a Senha de App do Gmail
-
-Sem isso o monitor roda e grava no log, mas **o e-mail não sai**.
-
-1. Ative a verificação em 2 etapas na conta Google.
-2. Gere uma Senha de App em https://myaccount.google.com/apppasswords
-   (16 caracteres; a senha normal da conta não funciona em SMTP desde 2022).
-3. Edite `~/.config/spkids/env` e preencha:
-
-```bash
-SPKIDS_ALERTA_PARA=voce@gmail.com
-SPKIDS_SMTP_USUARIO=voce@gmail.com
-SPKIDS_SMTP_SENHA=asenhadeapp16chars
-```
-
-### 3. Conferir que funciona
-
-```bash
-# roda uma vez e manda o e-mail mesmo sem novidade — serve de teste do SMTP
-.venv/bin/python monitor_spkids.py --sempre-notificar --sem-estado
-```
-
-Se o e-mail chegar, está pronto. Se aparecer
-`SMTP recusou as credenciais (535)`, a Senha de App está errada ou ausente.
-
-### 4. Acompanhar
-
-```bash
-crontab -l                                  # confirmar o agendamento
-tail -f ~/.local/state/spkids/monitor.log   # ver as execuções
-./rodar_monitor.sh                          # rodar na mão agora (as duas lojas)
-./rodar_monitor.sh copag                    # só a Copag
-./rodar_monitor.sh spkids                   # só a SP Kids
-./rodar_monitor.sh precos                   # coletar o preço das cartas agora
-```
-
-A partir daí é só esperar: o e-mail chega sozinho quando algo mudar.
+| Peça | Onde roda | Arquivo |
+|---|---|---|
+| Coleta de notícias | pg_cron no Supabase (`7,37 * * * *`) | `supabase/noticias.sql` |
+| Coleta de preços | pg_cron no Supabase (`17 * * * *`) | `supabase/coleta_precos.sql` |
+| Site | GitHub Pages | `index.html`, `painel_precos.html` |
+| Resumo por e-mail | GitHub Actions, 7h de Brasília | `resumo_noticias.py`, `.github/workflows/resumo.yml` |
+| Checagem diária das coletas | GitHub Actions | `.github/workflows/coleta.yml` |
 
 ---
 
-## O que ele faz
+## Notícias
 
-### Por que não precisa de login
+`coleta.coletar_noticias()` lê cada feed de `public.fontes` com a extensão
+`http`, entende RSS 2.0, RSS 1.0 e Atom (por `local-name()`, sem depender do
+prefixo de namespace de cada site) e grava título, link, resumo (texto puro,
+até 280 caracteres), imagem e data em `public.noticias`. O link é a
+identidade: a mesma notícia em dois feeds entra uma vez. Na primeira leitura
+de um feed, o que passou de 14 dias fica de fora; o job `limpa-noticias` apaga
+o que passou de 90.
 
-O site esconde os preços atrás de `Faça login para ver o preço`, mas isso é só
-no HTML. A **Store API do WooCommerce** (`/wp-json/wc/store/v1`) é pública e
-devolve os preços sem autenticação — conferidos contra o site logado, batem
-exatamente. Para avisar, nenhuma senha do site é necessária; o login só entra
-na [compra automática](#compra-automática).
+Uma fonte que falha não derruba as outras: o erro fica anotado na própria
+fonte (`fontes.erro`) e aparece no rodapé do site.
 
-### Duas fontes, para não perder o lançamento
+### Fontes
 
-| Fonte | O que pega |
+| Tema | Fontes |
 |---|---|
-| Store API | os produtos visíveis no catálogo (hoje 111) |
-| `wp-sitemap-posts-product-1.xml` | toda página de produto publicada (hoje 168) |
+| Tecnologia | Tecnoblog, Olhar Digital, Canaltech, The Verge, Ars Technica, Hacker News (300+ pontos) |
+| IA | The Verge, TechCrunch, MIT Technology Review |
+| Games | IGN Brasil, Nintendo Boy, Nintendo Life, Eurogamer |
+| Pokémon | Google Notícias (busca em português), Nintendo Life, PokeJungle |
+| Pokémon TCG | Google Notícias (português e inglês), Nintendo Life |
+| Ciência | Pesquisa FAPESP, ScienceDaily, NASA, Quanta Magazine, Nature |
 
-A diferença importa: a loja cria a página do produto **antes** de liberá-la no
-catálogo. Um produto de 30 anos aparece no sitemap assim que a página existe,
-o que dá vantagem enquanto a distribuidora ainda está organizando o estoque.
+Pokémon em português quase não tem site com RSS próprio, por isso a busca do
+Google Notícias (`when:3d` corta matéria velha). O site mostra o veículo real,
+que o Google põe no fim do título. A PokeBeach responde 403 (Cloudflare) e
+ficou de fora.
 
-Além dos termos de busca, cada execução compara o catálogo com o da execução
-anterior e avisa sobre **qualquer** produto ou categoria nova — rede de
-segurança para o caso de a coleção entrar com um nome inesperado.
+Para pôr ou tirar uma fonte, edite a lista no `supabase/noticias.sql` e rode o
+script de novo (ele atualiza pelo `id`). Para só pausar uma:
 
-Os padrões foram validados contra os 40 nomes reais da coleção como listados
-no mercado brasileiro, normalizados para o estilo do catálogo da SP Kids
-(maiúscula, sem acento): 40 de 40 detectados, sem casar com falsos positivos
-como `PASTA 3X3 C/ 30 FOLHAS`.
-
-### Cadastrada não é à venda
-
-A loja publica a página com preço antes de liberar a compra: os produtos de
-30 anos ficaram escondidos do catálogo, com `is_in_stock` falso. As páginas
-ocultas são consultadas em `/products/{id}` (a listagem as esconde, mas a
-rota por id responde), e o aviso "JA DA PARA COMPRAR" só sai quando entra
-estoque. `is_purchasable` não serve de sinal: sem login ele vem falso em todo
-o catálogo.
-
-O campo `add_to_cart.maximum` da Store API é o estoque que sobra (teto 9999
-quando a loja não controla estoque ou ele está zerado) — conferido pedindo
-uma unidade a mais que ele no carrinho.
-
-### Compra automática
-
-Com `SPKIDS_COMPRA=ID:QTD` (e `SPKIDS_EMAIL`/`SPKIDS_SENHA`) no
-`~/.config/spkids/env`, na execução em que o produto entrar em estoque o
-monitor entra na conta, põe a quantidade no carrinho, escolhe o frete de
-`SPKIDS_FRETE` (padrão `Retirada`), fecha o pedido com Pix (PagHiper) e manda
-o e-mail com o link do pedido, o Pix copia-e-cola, a validade e o QR Code
-anexo, quando a página do pedido os traz.
-
-- Só segue com o carrinho da conta vazio; senão avisa e não mexe.
-- Depois de tentar o checkout, não tenta de novo sozinho (registro em
-  `compras` no estado), para nunca duplicar o pedido. Falha antes disso
-  (login, rede) tenta na execução seguinte.
-- Carrinho não reserva estoque; o pedido criado, sim, enquanto espera o
-  pagamento. O pedido mínimo da loja é R$ 1.000.
-- Se falhar, o e-mail traz o passo a passo para fechar na mão.
-- Ligue a compra em **uma máquina só**: o registro de `compras` fica no
-  estado local, então duas máquinas com `SPKIDS_COMPRA` fariam dois pedidos.
-- Precisa de IP residencial. O Cloudflare da loja responde a IP de datacenter
-  (Render, GitHub Actions) com o desafio "Just a moment..." (403), até na home;
-  por isso a SP Kids roda no cron de casa e só a Copag roda na Render.
-
----
-
-## Copag B2B
-
-A loja roda em VTEX. A API de catálogo clássica recusa as consultas (os canais
-de venda do B2B são restritos), mas o **Intelligent Search**
-(`/api/io/_v/api/intelligent-search`) é público e devolve nome, categoria,
-preço e estoque sem login. O catálogo inteiro tem cerca de 170 produtos, então
-cada execução baixa tudo em 4 requisições.
-
-Na primeira verificação (23/09/2026) os 8 itens da categoria
-`Pokémon › 30 Anos` já estavam no catálogo, **todos com estoque zero**. Por
-isso o monitor da Copag avisa sobre mudança de estoque, não sobre produto novo:
-
-| Evento | Alerta |
-|---|---|
-| item de 30 anos passa de 0 para disponível | **urgente**: `DISPONIVEL na Copag B2B!` |
-| item de 30 anos novo no catálogo | **urgente** |
-| item de 30 anos esgota | informativo |
-| outro produto Pokémon novo | informativo |
-| página Pokémon nova no sitemap, ainda fora da busca | informativo |
-
-Todo e-mail traz a situação atual dos itens da coleção (preço e estoque). O
-preço mostrado é o público da loja; o preço B2B de quem está logado pode ser
-diferente.
-
-O estado fica em `dados/copag-estado.json`. Usa as mesmas credenciais de
-e-mail e o mesmo webhook da SP Kids (`~/.config/spkids/env`).
-
-```bash
-.venv/bin/python monitor_copag.py --help
-.venv/bin/python monitor_copag.py --sem-estado        # só ver a situação atual
+```sql
+update public.fontes set ativa = false where id = 'eurogamer';
 ```
 
----
+### O site
+
+- Filtro por tema (vai para o endereço: `#pokemon-tcg` abre já filtrado) e
+  busca por palavra, sem acento.
+- Agrupado por dia, 60 por vez, 7 dias para trás.
+- Marca como "nova" o que chegou desde a sua última visita (guardado no navegador).
+- A notícia abre no site de origem.
+
+### Resumo por e-mail
+
+`resumo_noticias.py` lê a mesma `rpc('painel_noticias')` do site, separa as
+notícias das últimas 24 horas por tema (até 10 por tema, Pokémon TCG primeiro)
+e manda um e-mail só. Se não houver nenhuma notícia em 24 horas, falha: é
+sinal de que a coleta parou, e o GitHub avisa.
+
+O SMTP vem de segredos do repositório (Gmail com Senha de App, gerada em
+https://myaccount.google.com/apppasswords):
+
+```bash
+gh secret set SMTP_USUARIO
+gh secret set SMTP_SENHA
+gh secret set RESUMO_PARA
+```
+
+Para testar sem mandar nada: `python3 resumo_noticias.py --sem-enviar`. Para
+mandar agora: `gh workflow run resumo.yml`.
+
+### Acompanhar
+
+```sql
+select id, ok_em, erro from public.fontes order by erro nulls last, id;  -- saúde das fontes
+select tema, count(*) from public.noticias
+ where publicado_em > now() - interval '1 day' group by 1;               -- volume do dia
+select coleta.coletar_noticias();                                         -- coletar agora
+```
 
 ## Preço das cartas
 
-**https://afonsolelis.github.io/monitor-spkids/**
+**https://afonsolelis.github.io/monitor-spkids/precos.html**
 
 A coleta roda dentro do Supabase (projeto `lwamaovuxcevsjfvtqhf`), sem nada
 nesta máquina nem no GitHub Actions. Tudo está em `supabase/coleta_precos.sql`:
@@ -233,7 +163,7 @@ repositório só como arquivo.
 
 ### Acompanhar
 
-O workflow `Coleta no Supabase` (`.github/workflows/coleta.yml`) confere uma
+O workflow `Coletas no Supabase` (`.github/workflows/coleta.yml`) confere uma
 vez por dia se a última coleta tem menos de 3 horas; se não tiver, falha e o
 GitHub manda e-mail. O acesso diário também conta como uso, e o plano grátis
 do Supabase pausa o projeto depois de 7 dias parado.
@@ -246,7 +176,7 @@ select * from cron.job_run_details order by start_time desc limit 10;  -- erros 
 select public.atualizar_precos();                                   -- coletar agora
 ```
 
-O `painel.yml` só publica o HTML no Pages quando `painel_precos.html` muda.
+O `site.yml` só publica no Pages quando `index.html` ou `painel_precos.html` muda.
 
 ### Instalar do zero
 
@@ -280,63 +210,13 @@ Supabase do mesmo jeito.
 
 ---
 
-## Opções
+## Desenvolvimento
 
 ```bash
-.venv/bin/python monitor_spkids.py --help
-
-# só a categoria Coleções, sem gravar estado
-.venv/bin/python monitor_spkids.py --categoria colecoes --sem-estado
-
-# termo extra de busca (regex)
-.venv/bin/python monitor_spkids.py --termo "escuridao absoluta"
-
-# notificação no celular via ntfy, em vez de e-mail
-.venv/bin/python monitor_spkids.py --webhook https://ntfy.sh/seu-topico
-
-# conferir se as credenciais do site autenticam (opcional, não é necessário)
-SPKIDS_EMAIL=... SPKIDS_SENHA=... .venv/bin/python monitor_spkids.py --testar-login
+git clone git@github.com:afonsolelis/monitor-spkids.git
+cd monitor-spkids
+./instalar.sh     # hooks do git e Playwright dos testes visuais
 ```
-
-Por padrão só notifica quando há novidade. `--sempre-notificar` manda sempre.
-
-### Códigos de saída
-
-| Código | Significado |
-|---|---|
-| `0` | sem novidade |
-| `10` | novidade encontrada (alerta enviado) |
-| `1` | erro na verificação, ou nenhum canal conseguiu entregar o alerta |
-| `75` | outra execução ainda rodando (só pelo `rodar_monitor.sh`) |
-
-Se o alerta de uma novidade não for entregue, o estado **não** é gravado: a
-execução seguinte vê a mesma novidade e tenta de novo.
-
-Depois que a coleção lançar, o aviso "LANÇOU" não se repete a cada hora: o
-estado lembra o que já foi avisado e só volta a avisar quando aparece produto
-novo da coleção ou quando um deles entra em estoque (itens novos vêm marcados
-com `[novo]`).
-
-### Segurança do e-mail
-
-SMTP com STARTTLS. Se o servidor não oferecer TLS e houver senha configurada,
-o envio é **recusado** em vez de mandar a credencial em texto claro. As
-credenciais ficam só em `~/.config/spkids/env` (permissão `600`), nunca no
-código nem na linha de comando — `ps` mostra argumentos para qualquer usuário
-da máquina.
-
----
-
-## Arquivos fora do repositório
-
-| Caminho | Conteúdo |
-|---|---|
-| `~/.config/spkids/env` | credenciais SMTP, permissão `600` |
-| `~/.local/state/spkids/monitor.log` | log de cada execução |
-| `dados/spkids-estado.json` | catálogo da SP Kids na execução anterior |
-| `dados/copag-estado.json` | catálogo e estoque da Copag na execução anterior |
-
-## Desenvolvimento
 
 Regras do repositório (git trunk-based direto na `main`, Conventional Commits,
 segredos, o que rodar antes de commitar) no [AGENTS.md](AGENTS.md). Os agentes
@@ -352,17 +232,18 @@ scripts/analisar_push.sh          # o último commit da main
 ```
 
 ```bash
-npm run test:visual             # regressão visual pixel a pixel do painel
+npm run test:visual             # regressão visual pixel a pixel das duas páginas
 npm run test:visual:atualizar   # regravar as referências (mudança intencional)
 npm run test:visual:relatorio   # abrir o relatório com as diferenças
 ```
 
-Os testes abrem `painel_precos.html` do disco com dados fixos
-(`tests/visual/fixtures/painel.json`) e toda a rede interceptada, em quatro
-perfis: desktop e celular, tema claro e escuro.
+Os testes abrem `index.html` e `painel_precos.html` do disco com dados fixos
+(`tests/visual/fixtures/`) e toda a rede interceptada, em quatro perfis:
+desktop e celular, tema claro e escuro.
 
-## Limitação conhecida
+## Arquivos fora do repositório
 
-O cron não recupera execução perdida: se a máquina estiver suspensa às 14h00,
-não roda 14h00 — roda na próxima janela de 5 minutos em que estiver acordada. Para garantia em máquina que dorme, troque por um
-timer do systemd com `Persistent=true`.
+| Caminho | Conteúdo |
+|---|---|
+| `~/.config/spkids/supabase-db` | URL do Postgres com senha (para `psql` e `scripts/analisar_push.sh`) |
+| `~/.config/spkids/env` | SMTP para testar o resumo daqui (ver `env.exemplo`), permissão `600` |

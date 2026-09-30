@@ -1,8 +1,9 @@
-# Confere uma vez por dia se a coleta no Supabase esta andando. Falha (e o
-# GitHub manda e-mail) quando a ultima coleta tem mais de 3 horas. De quebra,
+# Confere uma vez por dia se as coletas no Supabase estao andando. Falha (e o
+# GitHub manda e-mail) quando a ultima coleta de precos ou de noticias tem
+# mais de 3 horas. De quebra,
 # o acesso diario conta como uso e evita que o plano gratis pause o projeto
 # por inatividade.
-name: Coleta no Supabase
+name: Coletas no Supabase
 
 on:
   schedule:
@@ -33,5 +34,21 @@ jobs:
           echo "última coleta há $(( idade / 60 )) minutos"
           if [ "$idade" -gt 10800 ]; then
             echo "::error::a última coleta foi há mais de 3 horas; ver cron.job_run_details no Supabase"
+            exit 1
+          fi
+
+      - name: Última coleta de notícias
+        run: |
+          set -euo pipefail
+          resposta="$(curl -sS --fail-with-body --retry 3 --retry-all-errors \
+            -H "apikey: $SUPABASE_CHAVE" \
+            "$SUPABASE_URL/rest/v1/fontes?select=ok_em&ok_em=not.is.null&order=ok_em.desc&limit=1")"
+          echo "$resposta"
+          momento="$(echo "$resposta" | jq -r '.[0].ok_em // empty')"
+          [ -n "$momento" ] || { echo "::error::nenhuma coleta de notícias no Supabase"; exit 1; }
+          idade=$(( $(date +%s) - $(date -d "$momento" +%s) ))
+          echo "última coleta de notícias há $(( idade / 60 )) minutos"
+          if [ "$idade" -gt 10800 ]; then
+            echo "::error::a última coleta de notícias foi há mais de 3 horas; ver cron.job_run_details no Supabase"
             exit 1
           fi

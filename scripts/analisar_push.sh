@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Analisa um push na main: espera os workflows do commit, mostra o log do que
-# falhou, confere se o Pages serve o painel desse commit e checa a saude do
+# falhou, confere se o Pages serve as paginas desse commit e checa a saude do
 # Supabase (coleta, cron, espaco, RLS, funcoes expostas).
 #
 #   scripts/analisar_push.sh            o ultimo commit da origin/main
@@ -51,18 +51,22 @@ done
 # ----------------------------------------------------------------- Pages
 echo "== GitHub Pages"
 if [ "$sha" = "$(git rev-parse origin/main)" ]; then
-  esperado="$(git show "$sha:painel_precos.html" | sha256sum | cut -d' ' -f1)"
-  # O CDN do Pages pode levar alguns minutos para trocar a versao.
-  for tentativa in 1 2 3 4 5 6; do
-    servido="$(curl -sSfL "$PAGINA?v=$(date +%s)" 2>/dev/null | sha256sum | cut -d' ' -f1)"
-    [ "$servido" = "$esperado" ] && break
-    [ "$tentativa" -lt 6 ] && sleep 30
+  # Raiz = index.html (noticias); precos.html = painel_precos.html.
+  for par in "index.html:" "painel_precos.html:precos.html"; do
+    arquivo="${par%%:*}"
+    esperado="$(git show "$sha:$arquivo" | sha256sum | cut -d' ' -f1)"
+    # O CDN do Pages pode levar alguns minutos para trocar a versao.
+    for tentativa in 1 2 3 4 5 6; do
+      servido="$(curl -sSfL "$PAGINA${par#*:}?v=$(date +%s)" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+      [ "$servido" = "$esperado" ] && break
+      [ "$tentativa" -lt 6 ] && sleep 30
+    done
+    if [ "$servido" = "$esperado" ]; then
+      echo "  ok: o Pages serve o $arquivo deste commit"
+    else
+      falha "o Pages nao serve o $arquivo deste commit ($PAGINA${par#*:})"
+    fi
   done
-  if [ "$servido" = "$esperado" ]; then
-    echo "  ok: o Pages serve o painel_precos.html deste commit"
-  else
-    falha "o Pages nao serve o painel_precos.html deste commit ($PAGINA)"
-  fi
 else
   echo "  pulado: $sha nao e o topo da main"
 fi
@@ -77,8 +81,16 @@ else
   if [[ ! "$idade" =~ ^-?[0-9]+$ ]]; then
     falha "nao consegui consultar o banco: $idade"
   else
-    if [ "$idade" -lt 0 ] || [ "$idade" -gt 90 ]; then falha "ultima coleta ha $idade min (esperado: menos de 90)"
-    else echo "  ok: ultima coleta ha $idade min"; fi
+    if [ "$idade" -lt 0 ] || [ "$idade" -gt 90 ]; then falha "ultima coleta de precos ha $idade min (esperado: menos de 90)"
+    else echo "  ok: ultima coleta de precos ha $idade min"; fi
+
+    # Noticias: a cada meia hora; fonte com erro e aviso, nao falha (site de
+    # fora sai do ar e volta sozinho).
+    idade_n="$(sql "select coalesce(round(extract(epoch from now() - max(ok_em)) / 60), -1) from public.fontes")"
+    if [ "$idade_n" -lt 0 ] || [ "$idade_n" -gt 70 ]; then falha "ultima coleta de noticias ha $idade_n min (esperado: menos de 70)"
+    else echo "  ok: ultima coleta de noticias ha $idade_n min"; fi
+    com_erro="$(sql "select string_agg(id || ' (' || left(erro, 60) || ')', ', ') from public.fontes where ativa and erro is not null")"
+    [ -z "$com_erro" ] || aviso "fonte(s) com erro na ultima leitura: $com_erro"
 
     falhas_cron="$(sql "select count(*) from cron.job_run_details where status = 'failed' and start_time > now() - interval '24 hours'")"
     if [ "$falhas_cron" -gt 0 ]; then
@@ -90,11 +102,11 @@ else
     if [ "$mb" -gt 400 ]; then falha "banco com $mb MB (plano gratis: 500 MB)"
     else echo "  ok: banco com $mb MB de 500"; fi
 
-    sem_rls="$(sql "select string_agg(tablename, ', ') from pg_tables where schemaname = 'public' and tablename in ('precos', 'cartas', 'coletas', 'cartas_marcadas', 'cartas_encomendadas') and not rowsecurity")"
-    if [ -n "$sem_rls" ]; then falha "tabela(s) sem RLS: $sem_rls"; else echo "  ok: RLS ligado nas tabelas do painel"; fi
+    sem_rls="$(sql "select string_agg(tablename, ', ') from pg_tables where schemaname = 'public' and tablename in ('precos', 'cartas', 'coletas', 'cartas_marcadas', 'cartas_encomendadas', 'fontes', 'noticias') and not rowsecurity")"
+    if [ -n "$sem_rls" ]; then falha "tabela(s) sem RLS: $sem_rls"; else echo "  ok: RLS ligado nas tabelas do site"; fi
 
     # O projeto do Supabase abriga outros apps; so interessa o que e deste:
-    # o schema coleta fechado e, no public, so as duas funcoes do painel.
+    # o schema coleta fechado.
     abertas="$(sql "select concat_ws(', ', case when has_schema_privilege('anon', 'coleta', 'usage') then 'schema coleta' end, (select string_agg(p.proname, ', ') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'coleta' and has_function_privilege('anon', p.oid, 'execute')))")"
     if [ -n "$abertas" ]; then falha "o visitante (anon) alcanca a coleta interna: $abertas"
     else echo "  ok: schema coleta fechado para o visitante"; fi
