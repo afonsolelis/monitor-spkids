@@ -1,0 +1,38 @@
+# Resumo diario das noticias por e-mail, as 7h de Brasilia. Le do Supabase
+# com a chave publicavel (a mesma do site); so o SMTP e segredo:
+#   gh secret set SMTP_USUARIO / SMTP_SENHA / RESUMO_PARA
+# Sem noticia nas ultimas 24 horas o script falha, e o GitHub avisa por e-mail:
+# quer dizer que a coleta no Supabase parou.
+name: Resumo diário
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resumo
+  cancel-in-progress: false
+
+jobs:
+  enviar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Envia o resumo
+        env:
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
+          RESUMO_PARA: ${{ secrets.RESUMO_PARA }}
+        run: python resumo_noticias.py
