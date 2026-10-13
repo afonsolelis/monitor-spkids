@@ -110,6 +110,11 @@ exception when others then
 end;
 $$;
 
+-- Cartas que ficam de fora de proposito: os Mew vermelho, verde e azul
+-- (R/G/B) custam dezenas de milhares de reais, longe do que da para pagar.
+create or replace view coleta.fora_da_colecao (colecao, numero) as
+  values ('30C', 'R'), ('30C', 'G'), ('30C', 'B');
+
 -- '58/102' -> '058': o historico guarda o numero com tres digitos. A Classic
 -- Collection reimprime cartas com o numero original e tres pares se repetem;
 -- a Liga separava com letra, e o numero completo resolve.
@@ -221,6 +226,7 @@ as $$
   unicas as (
     select distinct on (sigla, numero) *
       from achadas
+     where (sigla, numero) not in (select * from coleta.fora_da_colecao)
      order by sigla, numero, ordem desc
   ),
   com_variante as (
@@ -551,3 +557,10 @@ select cron.schedule('limpa-cron', '43 6 * * *',
 -- ------------------------------------------------------ primeira carga
 select coleta.importar_csv('https://raw.githubusercontent.com/afonsolelis/monitor-spkids/main/dados/precos-cartas.csv') as linhas_importadas;
 select coleta.coletar_precos('manual') as primeira_coleta;
+
+-- O CSV antigo traz de volta as cartas de fora; elas saem do catalogo e do
+-- historico depois dele.
+delete from public.precos p using coleta.fora_da_colecao f
+ where p.colecao = f.colecao and p.numero = f.numero;
+delete from public.cartas c using coleta.fora_da_colecao f
+ where c.colecao = f.colecao and c.numero = f.numero;
