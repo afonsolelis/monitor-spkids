@@ -4,7 +4,7 @@
   "description": "Testes visuais do site: noticias e painel de precos (Playwright).",
   "scripts": {
     "test:visual": "playwright test",
-    "test:visual:atualizar": "playwright test --update-snapshots",
+    "test:visual:atualizar": "playwright test --update-snapshots=changed",
     "test:visual:relatorio": "playwright show-report tests/visual/relatorio"
   },
   "devDependencies": {

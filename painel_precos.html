@@ -422,6 +422,8 @@ function tendencia(carta) {
 
 // ------------------------------------------------------------ preparo
 function preparar(dados) {
+  // Ordem das edicoes como o banco manda: principal, clássicas, promos.
+  const edicoes = Object.keys(dados.edicoes);
   return dados.cartas.map(c => {
     const validos = c.s.filter(p => p[1] != null);
     const ultimo = validos[validos.length - 1];
@@ -430,7 +432,10 @@ function preparar(dados) {
       ...c,
       medio: ultimo ? ultimo[1] : null,
       min: ultimoMin ? ultimoMin[2] : null,
-      ordemNum: (c.col === "30C" ? "0" : "1") + c.num.padStart(6, "0"),
+      // Edição fora da lista vai para o fim; só a parte numérica leva zeros,
+      // para "101b" vir logo depois de "101".
+      ordemNum: String(edicoes.includes(c.col) ? edicoes.indexOf(c.col) : 99).padStart(2, "0")
+        + c.num.replace(/^\d+/, d => d.padStart(6, "0")),
     };
   });
 }
@@ -493,7 +498,7 @@ function montarTiles() {
   const soma = lista => lista.reduce((t, c) => t + (c.medio || 0), 0);
   alvo.append(
     tile("Cartas que tenho", `${minhas.length} de ${escopo.length}`,
-         `${Math.round((minhas.length / (escopo.length || 1)) * 100)}% ${edicao ? "da edição" : "das duas edições"}`,
+         `${Math.round((minhas.length / (escopo.length || 1)) * 100)}% ${edicao ? "da edição" : "de todas as edições"}`,
          minhas.length / (escopo.length || 1)),
     tile("Valor do que tenho", brl.format(soma(minhas)), "somando o preço médio atual"),
     tile("A chegar", `${aChegar.length} carta${aChegar.length === 1 ? "" : "s"}`,

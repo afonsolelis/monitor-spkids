@@ -74,6 +74,8 @@ function cortePelaTabela(page) {
 }
 
 test("tela de 320 px", async ({ page }) => {
+  // abre e fecha o detalhe varias vezes: passa dos 30 s com a maquina ocupada
+  test.slow();
   await page.setViewportSize({ width: 320, height: 700 });
   await abrir(page);
   expect(await cortePelaTabela(page), "largura escondida pelo overflow da tabela").toBeLessThanOrEqual(0);
@@ -85,7 +87,21 @@ test("tela de 320 px", async ({ page }) => {
     await page.locator('tr.carta[data-k="' + k + '"]').click();
   }
   await page.locator("#f-posse").selectOption("a-chegar");
+  // o mouse ficou onde foi o ultimo clique e acenderia a linha que caisse ali
+  await page.mouse.move(0, 0);
   await expect(page.locator(".tabela")).toHaveScreenshot("estreita-a-chegar.png");
+});
+
+// A edicao de promos: a opcao no filtro e o 101b logo depois do 101.
+test("promos de 30 anos", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await abrir(page);
+  await page.locator("#f-edicao").selectOption("30C-P");
+  await expect(page.locator("tr.carta")).toHaveCount(4);
+  const ordem = await page.locator("tr.carta").evaluateAll(linhas => linhas.map(l => l.dataset.k));
+  expect(ordem).toEqual(["30C-P/100", "30C-P/101", "30C-P/101b", "30C-P/102"]);
+  expect(await cortePelaTabela(page), "largura escondida pelo overflow da tabela").toBeLessThanOrEqual(0);
+  await expect(page).toHaveScreenshot("promos.png", { fullPage: true });
 });
 
 test("detalhe da carta", async ({ page }) => {

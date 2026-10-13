@@ -206,11 +206,14 @@ stable
 set search_path = ''
 as $$
   with edicoes (sigla, set_id) as (
-    values ('30C', '24722'), ('30C-C', '24837')
+    values ('30C', '24722'), ('30C-C', '24837'), ('30C-P', '24451')
   ),
   achadas as (
     select e.sigla,
-           coleta.numero(e.sigla, r -> 'card_info' ->> 'card_number') as numero,
+           coleta.numero(e.sigla, r -> 'card_info' ->> 'card_number')
+             -- a Nidorina com o carimbo do Pokemon Center tem o mesmo numero
+             || case when e.sigla = '30C-P' and r -> 'card_info' ->> 'name' ilike '%Pokemon Center%'
+                     then 'b' else '' end as numero,
            r -> 'card_info' ->> 'name' as nome,
            coalesce(r -> 'tcgplayer' ->> 'url', '') as url,
            case when jsonb_typeof(r -> 'tcgplayer' -> 'prices') = 'array'
@@ -221,6 +224,9 @@ as $$
      where r -> 'card_info' ->> 'product_type' = 'card'
        -- sem numero e o "Code Card" do booster, nao e carta
        and coalesce(r -> 'card_info' ->> 'card_number', '') <> ''
+       -- a edicao de promos e a da Mega Evolution inteira; so as com o selo
+       -- dos 30 anos entram
+       and (e.sigla <> '30C-P' or r -> 'card_info' ->> 'name' like '%(30th Celebration)%')
   ),
   -- Carta repetida na busca: vale a ultima, como no script antigo.
   unicas as (
@@ -247,8 +253,9 @@ as $$
   )
   select sigla,
          numero,
-         -- Algumas vem com o numero no nome ("Mew ex - 066/128").
-         regexp_replace(coalesce(nome, ''), '\s+-\s+\S+/\S+$', ''),
+         -- Algumas vem com o numero no nome ("Mew ex - 066/128"); as promos,
+         -- com numero e edicao ("Mew - 105 (30th Celebration)").
+         regexp_replace(coalesce(nome, ''), '\s+-\s+(\S+/\S+$|[0-9]+\s+\(30th Celebration\))', ''),
          case when produto ~ '^[0-9]+$'
               then 'https://tcgplayer-cdn.tcgplayer.com/product/' || produto || '_400w.jpg'
               else '' end,
@@ -278,7 +285,7 @@ begin
     select * from coleta.cartas_da_busca(resultados, dolar);
 
   select string_agg(sigla, ', ') into vazia
-    from (values ('30C'), ('30C-C')) as e (sigla)
+    from (values ('30C'), ('30C-C'), ('30C-P')) as e (sigla)
    where not exists (select 1 from pg_temp.novas n where n.colecao = e.sigla);
   if vazia is not null then
     raise exception 'nenhuma carta de % na busca; nada gravado', vazia;
@@ -291,6 +298,15 @@ begin
   on conflict (colecao, numero) do update
     set nome_en = excluded.nome_en, imagem = excluded.imagem,
         url = excluded.url, visto_em = excluded.visto_em;
+
+  -- A PokeWallet so tem nome em ingles; a promo herda o nome em portugues da
+  -- mesma carta nas outras edicoes, que veio da Liga.
+  update public.cartas c
+     set nome_pt = (select o.nome_pt from public.cartas o
+                     where o.nome_en = c.nome_en and o.nome_pt <> ''
+                     order by o.colecao, o.numero limit 1)
+   where c.nome_pt = ''
+     and exists (select 1 from public.cartas o where o.nome_en = c.nome_en and o.nome_pt <> '');
 
   -- Sem preco nenhum nao ha o que guardar; uma coleta vazia so sujaria o
   -- historico.
@@ -495,7 +511,8 @@ as $$
   select json_build_object(
     'gerado_em', (select max(momento) from public.coletas),
     'coletas', (select count(*) from public.coletas),
-    'edicoes', json_build_object('30C', 'Celebração de 30 Anos', '30C-C', 'Cartas Clássicas'),
+    'edicoes', json_build_object('30C', 'Celebração de 30 Anos', '30C-C', 'Cartas Clássicas',
+                                 '30C-P', 'Promos de 30 Anos'),
     'cartas', coalesce((
       select json_agg(json_build_object(
                'k', v.colecao || '/' || v.numero,
