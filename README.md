@@ -4,8 +4,8 @@
 
 Um site com duas abas:
 
-- **Notícias**: tecnologia, IA, games, Pokémon, Pokémon TCG e ciência, lidas
-  dos feeds RSS de 24 fontes a cada meia hora.
+- **Notícias**: tecnologia, IA, games, Nintendo, Pokémon, Pokémon TCG e ciência,
+  lidas dos feeds RSS de 28 fontes a cada meia hora.
 - **Cartas 30 anos** (`precos.html`): o preço de todas as cartas das duas
   edições de 30 anos, com a evolução, a tendência e as marcações de "tenho" e
   "a chegar". Fica até a coleção estar completa.
@@ -46,8 +46,9 @@ fonte (`fontes.erro`) e aparece no rodapé do site.
 |---|---|
 | Tecnologia | Tecnoblog, Olhar Digital, Canaltech, The Verge, Ars Technica, Hacker News (300+ pontos) |
 | IA | The Verge, TechCrunch, MIT Technology Review |
-| Games | IGN Brasil, Nintendo Boy, Nintendo Life, Eurogamer |
-| Pokémon | Google Notícias (busca em português), Nintendo Life, PokeJungle |
+| Games | IGN Brasil, Eurogamer |
+| Nintendo | Nintendo Boy, Nintendo Life, Nintendo Everything, Google Notícias (Zelda, Super Mario, Mario Kart, Mario Party e Switch 2) |
+| Pokémon | Google Notícias (busca em português), Google News (Pokémon Winds and Waves, rumores e vazamentos), Nintendo Life, PokeJungle |
 | Pokémon TCG | Google Notícias (português e inglês), Nintendo Life |
 | Ciência | Pesquisa FAPESP, ScienceDaily, NASA, Quanta Magazine, Nature |
 
@@ -55,6 +56,10 @@ Pokémon em português quase não tem site com RSS próprio, por isso a busca do
 Google Notícias (`when:3d` corta matéria velha). O site mostra o veículo real,
 que o Google põe no fim do título. A PokeBeach responde 403 (Cloudflare) e
 ficou de fora.
+
+A mesma notícia em dois feeds entra uma vez, com o tema do primeiro que a
+trouxe. Por isso a coleta lê Pokémon TCG, Pokémon e Nintendo antes dos temas
+gerais: a matéria de Pokémon da Nintendo Life cai em Pokémon, não em Nintendo.
 
 Para pôr ou tirar uma fonte, edite a lista no `supabase/noticias.sql` e rode o
 script de novo (ele atualiza pelo `id`). Para só pausar uma:

@@ -51,20 +51,6 @@
    "erro": null
   },
   {
-   "id": "nintendoboy",
-   "nome": "Nintendo Boy",
-   "tema": "games",
-   "ok_em": "2026-09-30T16:50:53.805222+00:00",
-   "erro": null
-  },
-  {
-   "id": "nintendo-life",
-   "nome": "Nintendo Life",
-   "tema": "games",
-   "ok_em": "2026-09-30T16:50:53.805222+00:00",
-   "erro": null
-  },
-  {
    "id": "mit-ia",
    "nome": "MIT Technology Review",
    "tema": "ia",
@@ -82,6 +68,20 @@
    "id": "verge-ia",
    "nome": "The Verge",
    "tema": "ia",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nintendoboy",
+   "nome": "Nintendo Boy",
+   "tema": "nintendo",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "nintendo-life",
+   "nome": "Nintendo Life",
+   "tema": "nintendo",
    "ok_em": "2026-09-30T16:50:53.805222+00:00",
    "erro": null
   },
@@ -213,7 +213,7 @@
    "r": "\"We continue to cherish the amazing relationship our companies built\". Grasshopper Manufacture has announced that it has parted way with parent company NetEase and is now once again an independent developer. NetEase acquired Grasshopper back in 2021, but after a string of acquis…",
    "i": "https://images.nintendolife.com/5255b8a688c26/large.jpg",
    "f": "nintendo-life",
-   "tm": "games",
+   "tm": "nintendo",
    "p": "2026-09-30T16:30:00+00:00"
   },
   {
@@ -312,7 +312,7 @@
    "r": "Bundled DLC, anyone? Just as it did with Scarlet and Violet , Nintendo and The Pokémon Company have today announced that Pokémon Legends: Z-A will be getting a new Switch 2 physical release that comes with the DLC bundled in. The new copies will launch on 29th October and contai…",
    "i": "https://images.nintendolife.com/184110cad253c/large.jpg",
    "f": "nintendo-life",
-   "tm": "games",
+   "tm": "nintendo",
    "p": "2026-09-30T15:45:00+00:00"
   },
   {
@@ -330,7 +330,7 @@
    "r": "A Perfect Garbage e a publicadora Blumhouse Games anunciaram um novo adiamento para a previsão de lançamento de Grave Seasons, mas desta vez com direito a uma data mais definitiva",
    "i": "https://nintendoboy.com.br/wp-content/uploads/2026/09/1000421870-791x445.jpg",
    "f": "nintendoboy",
-   "tm": "games",
+   "tm": "nintendo",
    "p": "2026-09-30T15:10:37+00:00"
   },
   {

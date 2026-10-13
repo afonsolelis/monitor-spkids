@@ -13,7 +13,7 @@ create extension if not exists pg_cron with schema pg_catalog;
 create table if not exists public.fontes (
   id        text primary key,
   nome      text not null,
-  tema      text not null check (tema in ('tecnologia', 'ia', 'games', 'pokemon', 'pokemon-tcg', 'ciencia')),
+  tema      text not null,
   url       text not null,
   ativa     boolean not null default true,
   ok_em     timestamptz,
@@ -43,6 +43,12 @@ drop policy if exists "todos leem" on public.noticias;
 create policy "todos leem" on public.fontes for select to anon, authenticated using (true);
 create policy "todos leem" on public.noticias for select to anon, authenticated using (true);
 
+-- O check fica fora do create table para valer tambem na tabela que ja
+-- existe quando entra um tema novo.
+alter table public.fontes drop constraint if exists fontes_tema_check;
+alter table public.fontes add constraint fontes_tema_check
+  check (tema in ('tecnologia', 'ia', 'games', 'nintendo', 'pokemon', 'pokemon-tcg', 'ciencia'));
+
 -- --------------------------------------------------------------- fontes
 -- O Google Noticias por busca cobre Pokemon em portugues, que quase nao tem
 -- site com RSS proprio; o "when:3d" corta materia velha que a busca devolve.
@@ -58,10 +64,16 @@ insert into public.fontes as f (id, nome, tema, url) values
   ('techcrunch-ia',    'TechCrunch',            'ia',          'https://techcrunch.com/category/artificial-intelligence/feed/'),
   ('mit-ia',           'MIT Technology Review', 'ia',          'https://www.technologyreview.com/topic/artificial-intelligence/feed'),
   ('ign-brasil',       'IGN Brasil',            'games',       'https://br.ign.com/feed.xml'),
-  ('nintendoboy',      'Nintendo Boy',          'games',       'https://nintendoboy.com.br/feed/'),
-  ('nintendo-life',    'Nintendo Life',         'games',       'https://www.nintendolife.com/feeds/latest'),
   ('eurogamer',        'Eurogamer',             'games',       'https://www.eurogamer.net/feed'),
+  ('nintendoboy',      'Nintendo Boy',          'nintendo',    'https://nintendoboy.com.br/feed/'),
+  ('nintendo-life',    'Nintendo Life',         'nintendo',    'https://www.nintendolife.com/feeds/latest'),
+  ('nintendo-everything', 'Nintendo Everything', 'nintendo',   'https://nintendoeverything.com/feed/'),
+  -- "Mario" sozinho pega politico e jogador de futebol.
+  ('gn-nintendo',      'Google Notícias',       'nintendo',    'https://news.google.com/rss/search?q=intitle:Zelda+OR+intitle:%22Super+Mario%22+OR+intitle:%22Mario+Kart%22+OR+intitle:%22Mario+Party%22+OR+intitle:%22Switch+2%22+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
   ('gn-pokemon',       'Google Notícias',       'pokemon',     'https://news.google.com/rss/search?q=Pok%C3%A9mon+-TCG+-cartas+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
+  -- Ventos e Ondas sai pouco em portugues com esse nome; em ingles vem bem.
+  ('gn-pokemon-ventos', 'Google News',          'pokemon',     'https://news.google.com/rss/search?q=%22Pok%C3%A9mon+Winds+and+Waves%22+when:3d&hl=en-US&gl=US&ceid=US:en'),
+  ('gn-pokemon-rumor', 'Google News',           'pokemon',     'https://news.google.com/rss/search?q=intitle:Pok%C3%A9mon+(intitle:rumor+OR+intitle:rumour+OR+intitle:leak+OR+intitle:leaked+OR+intitle:leaks)+when:7d&hl=en-US&gl=US&ceid=US:en'),
   ('nl-pokemon',       'Nintendo Life',         'pokemon',     'https://www.nintendolife.com/feeds/news/tags/pokemon'),
   ('pokejungle',       'PokeJungle',            'pokemon',     'https://pokejungle.net/feed/'),
   ('gn-pokemon-tcg',   'Google Notícias',       'pokemon-tcg', 'https://news.google.com/rss/search?q=Pok%C3%A9mon+TCG+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
@@ -74,6 +86,11 @@ insert into public.fontes as f (id, nome, tema, url) values
   ('nature',           'Nature',                'ciencia',     'https://www.nature.com/nature.rss')
 on conflict (id) do update
   set nome = excluded.nome, tema = excluded.tema, url = excluded.url;
+
+-- Fonte que trocou de tema leva junto o que ja tinha coletado.
+update public.noticias n set tema = f.tema
+  from public.fontes f
+ where n.fonte = f.id and n.tema <> f.tema;
 
 -- ---------------------------------------------------- funcoes internas
 create schema if not exists coleta;
@@ -272,7 +289,11 @@ begin
   if not pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('coleta.coletar_noticias')) then
     raise exception 'ja tem uma coleta de noticias em andamento';
   end if;
-  for f in select * from public.fontes where ativa order by id loop
+  -- A mesma noticia em dois feeds entra uma vez, com o tema do primeiro: os
+  -- temas estreitos vem antes, senao a materia de Pokemon da Nintendo Life
+  -- entraria pelo feed geral dela.
+  for f in select * from public.fontes where ativa
+            order by array_position(array['pokemon-tcg', 'pokemon', 'nintendo'], tema) nulls last, id loop
     begin
       novas := novas + coleta.coletar_fonte(f);
       update public.fontes set ok_em = now(), erro = null, erro_em = null where id = f.id;

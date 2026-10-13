@@ -178,6 +178,7 @@ const TEMAS = [
   ["tecnologia", "Tecnologia"],
   ["ia", "IA"],
   ["games", "Games"],
+  ["nintendo", "Nintendo"],
   ["pokemon", "Pokémon"],
   ["pokemon-tcg", "Pokémon TCG"],
   ["ciencia", "Ciência"],
@@ -365,11 +366,11 @@ async function carregar() {
     const dados = await resp.json();
     fontes = Object.fromEntries(dados.fontes.map(f => [f.id, f]));
     noticias = dados.noticias.map(preparar);
-    const atualizado = dados.gerado_em ? " · atualizado às " + fmtHora.format(new Date(dados.gerado_em)) : "";
-    $("sub").textContent = `Tecnologia, IA, games, Pokémon e ciência · ${dados.fontes.length} fontes${atualizado}`;
+    const atualizado = dados.gerado_em ? " · atualizado às\u00a0" + fmtHora.format(new Date(dados.gerado_em)) : "";
+    $("sub").textContent = `Tecnologia, IA, games, Nintendo, Pokémon e ciência · ${dados.fontes.length}\u00a0fontes${atualizado}`;
     desenharFontes(dados.fontes);
   } catch (e) {
-    $("sub").textContent = "Tecnologia, IA, games, Pokémon e ciência";
+    $("sub").textContent = "Tecnologia, IA, games, Nintendo, Pokémon e ciência";
     $("aviso").textContent = `Não consegui carregar as notícias (${e.message}). Tente recarregar a página.`;
     $("aviso").hidden = false;
   }
