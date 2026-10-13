@@ -31,6 +31,12 @@ conservador para mexer.
    - `gh run view <id> --log-failed`, `gh run view <id> --json jobs`;
    - banco: `psql "$(cat ~/.config/spkids/supabase-db)"` (nunca imprima o
      arquivo), `cron.job_run_details`, `public.coletas`, `public.fontes` (coluna `erro`).
+     A URL passa pelo pooler em modo transação (porta 6543): a conexão é
+     compartilhada, e um `set role` solto fica preso nela para quem vier
+     depois (em 13/10/2026 o psql e o `analisar_push.sh` passaram a entrar
+     como `anon` por ~10 min). Para testar como visitante, só dentro de uma
+     transação: `begin; set local role anon; select ...; rollback;`. Nunca
+     `set role` ou `set` de sessão sem `local`.
 3. Classifique:
    - **regressão de código** (lint, teste, SQL errado): descreva a causa com
      arquivo e linha e passe para o `dev`;
