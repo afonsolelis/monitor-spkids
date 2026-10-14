@@ -177,6 +177,48 @@
    "erro": null
   },
   {
+   "id": "gn-artcraft-en",
+   "nome": "Google News · ArtCraft",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-decomp",
+   "nome": "Google News · decomp e ports",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-rea",
+   "nome": "Google News · REA",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-artcraft",
+   "nome": "Google Notícias · ArtCraft",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-reversa",
+   "nome": "Google Notícias · engenharia reversa",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "hackaday-reversa",
+   "nome": "Hackaday",
+   "tema": "reversa",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
    "id": "ars-technica",
    "nome": "Ars Technica",
    "tema": "tecnologia",
@@ -392,6 +434,15 @@
    "p": "2026-09-30T15:10:37+00:00"
   },
   {
+   "t": "Desenvolvedor recria Photoshop, Word e Excel com IA e disponibiliza de graça - Olhar Digital",
+   "l": "https://news.google.com/rss/articles/artcraft-olhar-digital",
+   "r": "",
+   "i": "",
+   "f": "gn-artcraft",
+   "tm": "reversa",
+   "p": "2026-09-30T15:10:00+00:00"
+  },
+  {
    "t": "Pokémon TCG 30th Celebration Night Pikachu Mini Tin preorders are under market price at Walmart — while stocks last - mashable.com",
    "l": "https://news.google.com/rss/articles/CBMioAFBVV95cUxNa2dXMDg0ZGkydEFYMXZfajQyWjRSQ0RDVzVEYWJBVDE2c3g5OU9BZ3N0XzZDam85QjY5NjA4WG5wYy1yQUJ2cnViZlVaaHJ6cDJlZUZ5Vk01dHJBUFpiVlFldXNDbm5jM0lpbjZ0MXVkQ3NFV0xPNVhoWnpMNkxlazI1UTFnbFMzVnBJVmlQa2lUTGRmZGhJdmtlb0tfTmIt?oc=5",
    "r": "",
@@ -561,6 +612,24 @@
    "f": "sciencedaily",
    "tm": "ciencia",
    "p": "2026-09-30T11:34:31+00:00"
+  },
+  {
+   "t": "I Tested REA, GitHub's Viral Reverse Engineering Tool, on a Real Electron App - HackerNoon",
+   "l": "https://news.google.com/rss/articles/rea-hackernoon",
+   "r": "",
+   "i": "",
+   "f": "gn-rea",
+   "tm": "reversa",
+   "p": "2026-09-30T09:40:00+00:00"
+  },
+  {
+   "t": "Reverse Engineering A Sony Car Stereo LCD",
+   "l": "https://hackaday.com/2026/09/29/reverse-engineering-a-sony-car-stereo-lcd/",
+   "r": "Old car stereos often have custom LCD glass with a proprietary segment layout. Rather than throw the unit away, this project maps every segment and drives it from a microcontroller.",
+   "i": "https://hackaday.com/wp-content/uploads/2026/09/sony-lcd.jpg",
+   "f": "hackaday-reversa",
+   "tm": "reversa",
+   "p": "2026-09-29T20:00:00+00:00"
   },
   {
    "t": "Nordeste já responde por 25% das vendas de carros elétricos no país - Diário do Nordeste",

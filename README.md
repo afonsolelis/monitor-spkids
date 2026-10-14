@@ -51,6 +51,7 @@ fonte (`fontes.erro`) e aparece no rodapé do site.
 | Pokémon | Google Notícias (busca em português), Google News (Pokémon Winds and Waves, rumores e vazamentos), Nintendo Life, PokeJungle |
 | Pokémon TCG | Google Notícias (português e inglês), Nintendo Life |
 | Carros | Autoesporte, Quatro Rodas, g1 Carros, iG Carros, AutoPapo, FlatOut, Google Notícias (carros elétricos) |
+| Eng. reversa | Google Notícias e Google News (ArtCraft, REA, engenharia reversa, decompilações e ports nativos de jogos retro), Hackaday |
 | Ciência | Pesquisa FAPESP, ScienceDaily, NASA, Quanta Magazine, Nature |
 
 Pokémon em português quase não tem site com RSS próprio, por isso a busca do

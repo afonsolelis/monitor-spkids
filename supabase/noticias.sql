@@ -47,7 +47,7 @@ create policy "todos leem" on public.noticias for select to anon, authenticated 
 -- existe quando entra um tema novo.
 alter table public.fontes drop constraint if exists fontes_tema_check;
 alter table public.fontes add constraint fontes_tema_check
-  check (tema in ('tecnologia', 'ia', 'games', 'nintendo', 'pokemon', 'pokemon-tcg', 'carros', 'ciencia'));
+  check (tema in ('tecnologia', 'ia', 'games', 'nintendo', 'pokemon', 'pokemon-tcg', 'carros', 'reversa', 'ciencia'));
 
 -- --------------------------------------------------------------- fontes
 -- O Google Noticias por busca cobre Pokemon em portugues, que quase nao tem
@@ -88,6 +88,15 @@ insert into public.fontes as f (id, nome, tema, url) values
   ('autopapo',         'AutoPapo',              'carros',      'https://www.autopapo.com.br/feed/'),
   ('flatout',          'FlatOut',               'carros',      'https://www.flatout.com.br/feed/'),
   ('gn-carros-eletricos', 'Google Notícias',    'carros',      'https://news.google.com/rss/search?q=%22carro+el%C3%A9trico%22+OR+%22carros+el%C3%A9tricos%22+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
+  -- Engenharia reversa: ArtCraft (a suite em Rust que refaz Adobe e Office),
+  -- REA (Reverse Engineer Anything) e os ports nativos de jogos retro. O
+  -- hnrss cai demais para uma busca propria; a capa do Hacker News ja cobre.
+  ('gn-artcraft',      'Google Notícias · ArtCraft', 'reversa',     'https://news.google.com/rss/search?q=ArtCraft+(Adobe+OR+Photoshop+OR+%22c%C3%B3digo+aberto%22)+when:7d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
+  ('gn-artcraft-en',   'Google News · ArtCraft', 'reversa',     'https://news.google.com/rss/search?q=ArtCraft+(Adobe+OR+Photoshop+OR+%22open+source%22+OR+Rust+OR+Microsoft+OR+%22Brandon+Thomas%22)+when:7d&hl=en-US&gl=US&ceid=US:en'),
+  ('gn-rea',           'Google News · REA', 'reversa',     'https://news.google.com/rss/search?q=%22reverse+engineer+anything%22+OR+(REA+(decompilation+OR+%22reverse+engineering%22))+when:7d&hl=en-US&gl=US&ceid=US:en'),
+  ('gn-reversa',       'Google Notícias · engenharia reversa', 'reversa',     'https://news.google.com/rss/search?q=%22engenharia+reversa%22+when:7d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
+  ('gn-decomp',        'Google News · decomp e ports', 'reversa',     'https://news.google.com/rss/search?q=(decompilation+OR+decompiled+OR+recompilation+OR+recompiled+OR+%22native+PC+port%22)+(game+OR+N64+OR+PlayStation+OR+SNES+OR+GameCube+OR+Dreamcast)+when:7d&hl=en-US&gl=US&ceid=US:en'),
+  ('hackaday-reversa', 'Hackaday',              'reversa',     'https://hackaday.com/tag/reverse-engineering/feed/'),
   ('pesquisa-fapesp',  'Pesquisa FAPESP',       'ciencia',     'https://revistapesquisa.fapesp.br/feed/'),
   ('sciencedaily',     'ScienceDaily',          'ciencia',     'https://www.sciencedaily.com/rss/top/science.xml'),
   ('nasa',             'NASA',                  'ciencia',     'https://www.nasa.gov/feed/'),
@@ -302,7 +311,7 @@ begin
   -- temas estreitos vem antes, senao a materia de Pokemon da Nintendo Life
   -- entraria pelo feed geral dela.
   for f in select * from public.fontes where ativa
-            order by array_position(array['pokemon-tcg', 'pokemon', 'nintendo'], tema) nulls last, id loop
+            order by array_position(array['pokemon-tcg', 'pokemon', 'nintendo', 'reversa'], tema) nulls last, id loop
     begin
       novas := novas + coleta.coletar_fonte(f);
       update public.fontes set ok_em = now(), erro = null, erro_em = null where id = f.id;

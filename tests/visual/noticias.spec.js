@@ -102,6 +102,15 @@ test("noticias: tema pelo endereco", async ({ page }) => {
   await expect(page).toHaveScreenshot("noticias-tema.png");
 });
 
+// O tema mais novo, com uma noticia com imagem e outra do Google (o site sai
+// do fim do titulo).
+test("noticias: tema engenharia reversa", async ({ page }) => {
+  await abrir(page, { hash: "#reversa" });
+  await expect(page.locator(".item:not(.fixa)")).toHaveCount(3);
+  await expect(page.locator(".item:not(.fixa) .meta").first()).toContainText("Olhar Digital · Eng. reversa");
+  await expect(page).toHaveScreenshot("noticias-reversa.png");
+});
+
 test("noticias: busca sem resultado", async ({ page }) => {
   await abrir(page);
   await page.getByRole("searchbox").fill("zzz nada disso");
