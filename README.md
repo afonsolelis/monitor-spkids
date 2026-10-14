@@ -57,6 +57,14 @@ Google Notícias (`when:3d` corta matéria velha). O site mostra o veículo real
 que o Google põe no fim do título. A PokeBeach responde 403 (Cloudflare) e
 ficou de fora.
 
+### Mega-Sena
+
+No topo da lista, antes do primeiro dia e com qualquer filtro, fica fixo o
+último resultado da Mega-Sena: concurso, dezenas e se acumulou (com o prêmio
+estimado do próximo) ou quantas apostas acertaram a sena. A página lê direto
+`https://resultadomega.com.br/api/ultimo.json` (API pública, sem chave, com
+CORS); o Supabase não participa. Se a API falhar, o cartão só não aparece.
+
 A mesma notícia em dois feeds entra uma vez, com o tema do primeiro que a
 trouxe. Por isso a coleta lê Pokémon TCG, Pokémon e Nintendo antes dos temas
 gerais: a matéria de Pokémon da Nintendo Life cai em Pokémon, não em Nintendo.

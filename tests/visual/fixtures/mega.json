@@ -1,0 +1,45 @@
+{
+  "concurso": 3069,
+  "data": "2026-10-11",
+  "dezenas": [
+    5,
+    19,
+    22,
+    44,
+    47,
+    57
+  ],
+  "ordemSorteio": [
+    47,
+    5,
+    22,
+    44,
+    57,
+    19
+  ],
+  "especial": false,
+  "acumulado": true,
+  "arrecadacao": 98228184,
+  "premios": {
+    "4": {
+      "ganhadores": 9096,
+      "rateio": 709.33
+    },
+    "5": {
+      "ganhadores": 150,
+      "rateio": 26095.23
+    },
+    "6": {
+      "ganhadores": 0,
+      "rateio": 0
+    }
+  },
+  "acumuladoProximo": 137920959.97,
+  "estimativaProximo": 150000000,
+  "acumuladoVirada": 93687118.5,
+  "local": "Espaço da Sorte",
+  "municipio": "São Paulo",
+  "uf": "SP",
+  "observacao": null,
+  "ganhadores": []
+}

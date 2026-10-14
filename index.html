@@ -21,6 +21,9 @@
   --acento: #2a78d6;
   --acento-wash: rgba(42,120,214,0.10);
   --erro: #c2410c;
+  --mega: #137347;
+  --mega-ink: #ffffff;
+  --mega-wash: rgba(19,115,71,0.10);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -36,6 +39,9 @@
     --acento: #3987e5;
     --acento-wash: rgba(57,135,229,0.14);
     --erro: #fb923c;
+    --mega: #34b37a;
+    --mega-ink: #0d0d0d;
+    --mega-wash: rgba(52,179,122,0.14);
   }
 }
 :root[data-theme="dark"] {
@@ -51,6 +57,9 @@
   --acento: #3987e5;
   --acento-wash: rgba(57,135,229,0.14);
   --erro: #fb923c;
+  --mega: #34b37a;
+  --mega-ink: #0d0d0d;
+  --mega-wash: rgba(52,179,122,0.14);
 }
 
 * { box-sizing: border-box; }
@@ -116,6 +125,25 @@ input[type="search"] {
 .item img {
   width: 128px; height: 80px; object-fit: cover; border-radius: 6px;
   background: var(--grid); display: block;
+}
+/* Resultado da Mega-Sena fixo no topo da lista, antes do primeiro dia. */
+.fixa {
+  grid-template-columns: minmax(0, 1fr); gap: 0;
+  background: var(--mega-wash); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-top: 16px;
+}
+.fixa + .dia { margin-top: 20px; }
+/* Alturas inteiras: o line-height fracionario do .item deslocaria o resto da
+   pagina meio pixel e borraria o texto abaixo. */
+.fixa h2 { line-height: 20px; }
+.fixa .meta { line-height: 18px; margin-top: 8px; }
+.fixa .meta .tema { color: var(--mega); font-weight: 600; }
+.dezenas { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.dezenas span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--mega); color: var(--mega-ink); font-weight: 650; font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
 .mais { display: block; margin: 20px auto 0; }
 button.mais {
@@ -190,6 +218,7 @@ const $ = id => document.getElementById(id);
 const estado = { tema: "", busca: "", limite: POR_PAGINA };
 let noticias = [];
 let fontes = {};
+let mega = null;
 let visitaAnterior = 0;
 
 // localStorage pode faltar (aba anonima, bloqueio): so perde o "nova".
@@ -262,6 +291,7 @@ function desenharLista() {
   const todas = filtradas();
   const visiveis = todas.slice(0, estado.limite);
   const partes = [];
+  if (mega) partes.push(cartaoMega(mega));
   let diaAtual = "";
   for (const n of visiveis) {
     const dia = n.quando.toDateString();
@@ -336,6 +366,73 @@ function item(n) {
   return art;
 }
 
+// Mega-Sena: a API do Resultado Mega (resultadomega.com.br/api) e publica,
+// sem chave e com CORS, entao a pagina le direto; o Supabase nao entra.
+const MEGA_URL = "https://resultadomega.com.br/api/ultimo.json";
+const fmtReal = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const fmtMilhoes = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+
+function dinheiro(v) {
+  if (v >= 1e9) return "R$\u00a0" + fmtMilhoes.format(v / 1e9) + "\u00a0bilhões";
+  if (v >= 1e6) return "R$\u00a0" + fmtMilhoes.format(v / 1e6) + "\u00a0milhões";
+  return fmtReal.format(v);
+}
+
+function cartaoMega(m) {
+  const art = document.createElement("article");
+  art.className = "item fixa";
+  const texto = document.createElement("div");
+
+  const h = document.createElement("h2");
+  const a = document.createElement("a");
+  a.href = "https://resultadomega.com.br/";
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  const sena = m.premios && m.premios["6"] || {};
+  let manchete;
+  if (sena.ganhadores > 0) {
+    manchete = sena.ganhadores === 1
+      ? `uma aposta leva ${dinheiro(sena.rateio)}`
+      : `${sena.ganhadores} apostas levam ${dinheiro(sena.rateio)} cada`;
+  } else {
+    manchete = `acumulou, próximo prêmio estimado em ${dinheiro(m.estimativaProximo)}`;
+  }
+  a.textContent = `Mega-Sena ${m.concurso}: ${manchete}`;
+  h.append(a);
+
+  const dezenas = document.createElement("div");
+  dezenas.className = "dezenas";
+  dezenas.setAttribute("aria-label", "Dezenas sorteadas");
+  for (const d of m.dezenas) {
+    const b = document.createElement("span");
+    b.textContent = String(d).padStart(2, "0");
+    dezenas.append(b);
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const tema = document.createElement("span");
+  tema.className = "tema";
+  tema.textContent = "Mega-Sena";
+  // "AAAA-MM-DD" lido como data local, senao vira o dia anterior no fuso -3.
+  const [ano, mes, dia] = m.data.split("-").map(Number);
+  meta.append("Resultado Mega · ", tema, " · sorteio de " + fmtDia.format(new Date(ano, mes - 1, dia)).replace(/ /g, "\u00a0"));
+
+  texto.append(h, dezenas, meta);
+  art.append(texto);
+  return art;
+}
+
+async function carregarMega() {
+  const resp = await fetch(MEGA_URL, { signal: AbortSignal.timeout(8000) });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  const m = await resp.json();
+  if (!Array.isArray(m.dezenas) || m.dezenas.length !== 6 || !m.concurso || !m.data) {
+    throw new Error("resposta inesperada");
+  }
+  return m;
+}
+
 function desenharFontes(lista) {
   $("fontes").replaceChildren(...lista.map(f => {
     const li = document.createElement("li");
@@ -354,6 +451,9 @@ function desenharFontes(lista) {
 
 async function carregar() {
   lerVisita();
+  // Em paralelo com o Supabase e sem segurar a lista: quando chegar, redesenha.
+  // Se a API falhar, o cartao simplesmente nao aparece.
+  carregarMega().then(m => { mega = m; desenharLista(); }, e => console.warn("Mega-Sena:", e.message));
   const inicial = location.hash.slice(1);
   if (NOME_TEMA[inicial] && inicial) estado.tema = inicial;
   try {
