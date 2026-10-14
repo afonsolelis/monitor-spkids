@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cartas Pokémon 30 anos</title>
+<title>Cartas Pokémon</title>
 <!-- Painel publicado no GitHub Pages como precos.html (a raiz e o
      index.html, das noticias). Os dados vem do Supabase ao abrir
      (rpc painel_precos, ver supabase/coleta_precos.sql). -->
@@ -217,11 +217,11 @@ tr.detalhe td { background: var(--page); padding: 16px; }
 <main>
   <nav class="abas" aria-label="Seções">
     <a href="./">Notícias</a>
-    <a href="precos.html" aria-current="page">Cartas 30 anos</a>
+    <a href="precos.html" aria-current="page">Cartas</a>
   </nav>
   <div class="topo">
     <div>
-      <h1>Cartas Pokémon 30 anos</h1>
+      <h1>Cartas Pokémon</h1>
       <p class="sub" id="sub"></p>
     </div>
     <div class="acao">
@@ -619,7 +619,8 @@ function linhaCarta(c) {
   const nomes = document.createElement("div");
   const pt = document.createElement("div"); pt.className = "nome-pt"; pt.textContent = c.pt || c.en;
   const en = document.createElement("div"); en.className = "nome-en";
-  en.textContent = `#${c.num} · ${c.col}${c.pt && c.pt !== c.en.replace(/\s*\(#.*\)$/, "") ? " · " + c.en.replace(/\s*\(#.*\)$/, "") : ""}`;
+  // "#145 · 25C-P" fica inteiro numa linha: hifen e espacos que nao quebram.
+  en.textContent = `#${c.num}\u00a0·\u00a0${c.col.replace(/-/g, "\u2011")}${c.pt && c.pt !== c.en.replace(/\s*\(#.*\)$/, "") ? " · " + c.en.replace(/\s*\(#.*\)$/, "") : ""}`;
   nomes.append(pt, en);
   cel.appendChild(nomes);
   tdCarta.appendChild(cel);

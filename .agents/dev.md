@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Desenvolvedor do monitor-spkids (site de notícias + painel das cartas 30 anos). Use para implementar, corrigir ou refatorar qualquer parte do projeto (coletas SQL no Supabase, páginas HTML, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
+description: Desenvolvedor do monitor-spkids (site de notícias + painel das cartas de 30 e 25 anos). Use para implementar, corrigir ou refatorar qualquer parte do projeto (coletas SQL no Supabase, páginas HTML, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
 ---
 
 Você é o desenvolvedor deste repositório. Siga o `AGENTS.md` da raiz: ele manda

@@ -110,6 +110,34 @@ exception when others then
 end;
 $$;
 
+-- As edicoes acompanhadas, com o set da PokeWallet de onde vem cada uma e a
+-- ordem em que o painel as mostra. As promos de 25 anos moram no set de
+-- promos de Sword & Shield (so os numeros listados entram) e as duas de
+-- metal, no set de miscelanea.
+create or replace view coleta.edicoes (ordem, sigla, set_id, nome) as
+  values (1, '30C',   '24722', 'Celebração de 30 Anos'),
+         (2, '30C-C', '24837', 'Cartas Clássicas'),
+         (3, '30C-P', '24451', 'Promos de 30 Anos'),
+         (4, '25C',   '2867',  'Celebração de 25 Anos'),
+         (5, '25C-C', '2931',  'Clássicas de 25 Anos'),
+         (6, '25C-P', '2545',  'Promos de 25 Anos'),
+         (6, '25C-P', '2374',  'Promos de 25 Anos');
+
+-- As buscas que, juntas, cobrem todas as edicoes: a busca vem com preco e a
+-- listagem do set nao. Os promos de 25 anos nao tem "Celebrations" no nome,
+-- entao vao pelo prefixo do numero.
+create or replace view coleta.buscas (termo) as
+  values ('30th Celebration'), ('Celebrations'), ('Celebrations Metal'),
+         ('SWSH062'), ('SWSH13'), ('SWSH14');
+
+-- Os promos de 25 anos: o que veio nas colecoes, latas, caixas e no
+-- Ultra-Premium (lista da PokeBeach), sem os jumbos.
+create or replace view coleta.promos_25 (numero) as
+  values ('SWSH062'), ('SWSH132'), ('SWSH133'), ('SWSH134'), ('SWSH135'),
+         ('SWSH136'), ('SWSH137'), ('SWSH138'), ('SWSH139'), ('SWSH140'),
+         ('SWSH141'), ('SWSH142'), ('SWSH143'), ('SWSH144'), ('SWSH145'),
+         ('SWSH146');
+
 -- Cartas que ficam de fora de proposito: os Mew vermelho, verde e azul
 -- (R/G/B) custam dezenas de milhares de reais, longe do que da para pagar.
 create or replace view coleta.fora_da_colecao (colecao, numero) as
@@ -128,6 +156,13 @@ as $$
     when sigla = '30C-C' and completo = '11/101'  then '011b'  -- Genesect-EX (Metagross e 11/113)
     when sigla = '30C-C' and completo = '106/160' then '106b'  -- M Gardevoir-EX (Palkia LV.X e 106/106)
     when sigla = '30C-C' and completo = '106/105' then '106c'  -- Shining Celebi
+    -- Quatro "15" na Classic Collection de 25 anos (Venusaur e 15/102).
+    when sigla = '25C-C' and completo = '15/82'   then '015b'  -- Here Comes Team Rocket!
+    when sigla = '25C-C' and completo = '15/106'  then '015c'  -- Claydol
+    when sigla = '25C-C' and completo = '15/132'  then '015d'  -- Rocket's Zapdos
+    -- Promo SWSH145 -> 145; as de metal levam a edicao original (4/102 -> 004m).
+    when sigla = '25C-P' and completo ~ '^SWSH[0-9]+$' then lpad(substr(completo, 5), 3, '0')
+    when sigla = '25C-P' then lpad(split_part(completo, '/', 1), 3, '0') || 'm'
     when split_part(completo, '/', 1) ~ '^[0-9]{1,2}$' then lpad(split_part(completo, '/', 1), 3, '0')
     else split_part(completo, '/', 1)
   end
@@ -205,8 +240,8 @@ language sql
 stable
 set search_path = ''
 as $$
-  with edicoes (sigla, set_id) as (
-    values ('30C', '24722'), ('30C-C', '24837'), ('30C-P', '24451')
+  with edicoes as (
+    select distinct sigla, set_id from coleta.edicoes
   ),
   achadas as (
     select e.sigla,
@@ -227,6 +262,12 @@ as $$
        -- a edicao de promos e a da Mega Evolution inteira; so as com o selo
        -- dos 30 anos entram
        and (e.sigla <> '30C-P' or r -> 'card_info' ->> 'name' like '%(30th Celebration)%')
+       -- o set Celebrations traz uma Ponyta 014/083 perdida
+       and (e.sigla <> '25C' or r -> 'card_info' ->> 'card_number' like '%/025')
+       -- promos de 25 anos: so os da lista, e as duas cartas de metal
+       and (e.sigla <> '25C-P'
+            or r -> 'card_info' ->> 'card_number' in (select numero from coleta.promos_25)
+            or r -> 'card_info' ->> 'name' like '%(Celebrations Metal Card)%')
   ),
   -- Carta repetida na busca: vale a ultima, como no script antigo.
   unicas as (
@@ -254,8 +295,11 @@ as $$
   select sigla,
          numero,
          -- Algumas vem com o numero no nome ("Mew ex - 066/128"); as promos,
-         -- com numero e edicao ("Mew - 105 (30th Celebration)").
-         regexp_replace(coalesce(nome, ''), '\s+-\s+(\S+/\S+$|[0-9]+\s+\(30th Celebration\))', ''),
+         -- com numero e edicao ("Mew - 105 (30th Celebration)", "Pikachu V -
+         -- SWSH145") e as de metal, com o numero antes do parentese
+         -- ("Pikachu - 58/102 (Celebrations Metal Card)").
+         regexp_replace(coalesce(nome, ''),
+                        '\s+-\s+(\S+/\S+$|[0-9]+/[0-9]+(?=\s)|[0-9]+\s+\(30th Celebration\)|SWSH[0-9]+$)', ''),
          case when produto ~ '^[0-9]+$'
               then 'https://tcgplayer-cdn.tcgplayer.com/product/' || produto || '_400w.jpg'
               else '' end,
@@ -285,7 +329,7 @@ begin
     select * from coleta.cartas_da_busca(resultados, dolar);
 
   select string_agg(sigla, ', ') into vazia
-    from (values ('30C'), ('30C-C'), ('30C-P')) as e (sigla)
+    from (select distinct sigla from coleta.edicoes) as e
    where not exists (select 1 from pg_temp.novas n where n.colecao = e.sigla);
   if vazia is not null then
     raise exception 'nenhuma carta de % na busca; nada gravado', vazia;
@@ -338,8 +382,9 @@ declare
   dolar numeric;
   dados jsonb;
   resultados jsonb := '[]';
-  pagina integer := 1;
-  paginas integer := 1;
+  termo text;
+  pagina integer;
+  paginas integer;
 begin
   -- Botao e cron nunca coletam ao mesmo tempo.
   if not pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('coleta.coletar_precos')) then
@@ -352,14 +397,19 @@ begin
   end if;
 
   dolar := coleta.cotacao_dolar();
-  while pagina <= paginas and pagina <= 20 loop
-    dados := coleta.buscar_json(
-      'https://api.pokewallet.io/search?q=30th%20Celebration&limit=100&page=' || pagina, chave);
-    if jsonb_typeof(dados -> 'results') = 'array' then
-      resultados := resultados || (dados -> 'results');
-    end if;
-    paginas := coalesce(nullif(coleta.preco(dados -> 'pagination' -> 'total_pages'), 0), 1)::integer;
-    pagina := pagina + 1;
+  -- Uns 8 pedidos por coleta, de hora em hora; o plano gratis da 100 por hora.
+  for termo in select b.termo from coleta.buscas b loop
+    pagina := 1;
+    paginas := 1;
+    while pagina <= paginas and pagina <= 20 loop
+      dados := coleta.buscar_json(
+        'https://api.pokewallet.io/search?q=' || replace(termo, ' ', '%20') || '&limit=100&page=' || pagina, chave);
+      if jsonb_typeof(dados -> 'results') = 'array' then
+        resultados := resultados || (dados -> 'results');
+      end if;
+      paginas := coalesce(nullif(coleta.preco(dados -> 'pagination' -> 'total_pages'), 0), 1)::integer;
+      pagina := pagina + 1;
+    end loop;
   end loop;
 
   return coleta.gravar_coleta(resultados, dolar, origem, date_trunc('second', now()));
@@ -474,12 +524,13 @@ revoke all on all functions in schema coleta from public, anon, authenticated;
 -- Tudo que o painel precisa numa chamada so, no mesmo formato que o script
 -- antigo embutia no HTML: hora a hora nos ultimos 14 dias e um ponto por dia
 -- (a media) antes disso. s = [[segundos unix, preco medio, preco minimo]].
--- Mostra as cartas vistas na ultima coleta.
+-- Mostra as cartas vistas na ultima coleta. E security definer porque le a
+-- lista de edicoes do schema coleta, fechado para o anon.
 create or replace function public.painel_precos()
 returns json
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 set statement_timeout = '20s'
 as $$
@@ -511,8 +562,8 @@ as $$
   select json_build_object(
     'gerado_em', (select max(momento) from public.coletas),
     'coletas', (select count(*) from public.coletas),
-    'edicoes', json_build_object('30C', 'Celebração de 30 Anos', '30C-C', 'Cartas Clássicas',
-                                 '30C-P', 'Promos de 30 Anos'),
+    'edicoes', (select json_object_agg(e.sigla, e.nome order by e.ordem)
+                  from (select distinct ordem, sigla, nome from coleta.edicoes) e),
     'cartas', coalesce((
       select json_agg(json_build_object(
                'k', v.colecao || '/' || v.numero,

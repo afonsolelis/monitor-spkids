@@ -12,10 +12,10 @@ abrir). Nada roda em máquina local.
 - `supabase/noticias.sql`: coleta dos feeds RSS/Atom de `public.fontes` dentro
   do Supabase (pg_cron às :07 e :37). Pública só `painel_noticias()`.
 - `index.html`: a aba Notícias, na raiz do Pages.
-- `supabase/coleta_precos.sql`: coleta de preço das cartas de 30 anos
+- `supabase/coleta_precos.sql`: coleta de preço das cartas de 30 e 25 anos
   (pg_cron às :17, chave da PokéWallet no Vault). Públicas só
   `painel_precos()` e `atualizar_precos()`.
-- `painel_precos.html`: a aba Cartas 30 anos, publicada como `precos.html`.
+- `painel_precos.html`: a aba Cartas, publicada como `precos.html`.
   Fica até a coleção estar completa.
 - Funções internas das duas coletas no schema `coleta`, fora da API.
 - `tests/visual/`: regressão visual pixel a pixel das duas páginas (Playwright).

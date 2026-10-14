@@ -1,4 +1,4 @@
-# Notícias + cartas Pokémon 30 anos
+# Notícias + cartas Pokémon
 
 **https://afonsolelis.github.io/monitor-spkids/**
 
@@ -6,8 +6,8 @@ Um site com duas abas:
 
 - **Notícias**: tecnologia, IA, games, Nintendo, Pokémon, Pokémon TCG e ciência,
   lidas dos feeds RSS de 28 fontes a cada meia hora.
-- **Cartas 30 anos** (`precos.html`): o preço de todas as cartas das duas
-  edições de 30 anos, com a evolução, a tendência e as marcações de "tenho" e
+- **Cartas** (`precos.html`): o preço de todas as cartas das edições de 30 anos
+  e das de 25 anos (Celebrations), com a evolução, a tendência e as marcações de "tenho" e
   "a chegar". Fica até a coleção estar completa.
 
 Nada roda nesta máquina. As duas coletas rodam no `pg_cron` do Supabase
@@ -113,12 +113,23 @@ nesta máquina nem no GitHub Actions. Tudo está em `supabase/coleta_precos.sql`
 - O GitHub Pages serve só a casca: ao abrir, o painel pede tudo de uma vez a
   `rpc('painel_precos')`.
 
-Cobre as duas edições:
+Cobre as edições de 30 anos e as de 25 anos (Celebrations, 2021). As edições,
+os sets e as buscas que as cobrem ficam nas views `coleta.edicoes` e
+`coleta.buscas`:
 
 | Edição | Sigla | Set na PokéWallet | Cartas |
 |---|---|---|---|
 | Celebração de 30 Anos | `30C` | `24722` | 161 |
 | Cartas Clássicas (Classic Collection) | `30C-C` | `24837` | 30 |
+| Promos de 30 Anos (com o selo) | `30C-P` | `24451` | 18 |
+| Celebração de 25 Anos (Celebrations) | `25C` | `2867` | 25 |
+| Clássicas de 25 Anos (Classic Collection) | `25C-C` | `2931` | 25 |
+| Promos de 25 Anos (lista da PokéBeach) e as duas de metal | `25C-P` | `2545`, `2374` | 18 |
+
+Os promos de 25 anos não têm "Celebrations" no nome na PokéWallet, por isso a
+busca vai pelo prefixo do número (`SWSH13`, `SWSH14`, `SWSH062`) e só entram os
+da lista (`coleta.promos_25`). Os quatro "15" da Classic Collection de 25 anos
+ganham sufixo (`015`, `015b`, `015c`, `015d`), como os repetidos da de 30.
 
 **Fonte: a API da PokéWallet.** As lojas brasileiras ficaram inviáveis: a MYP
 Cards e a LigaPokemon respondem o desafio anti-robô do Cloudflare a qualquer
@@ -126,7 +137,7 @@ acesso automatizado (a Liga desde setembro de 2026), e contornar isso seria
 burlar a proteção do site. A pokemontcg.io parou de publicar preços e sai do ar
 em março de 2027. A PokéWallet tem plano grátis (100 pedidos por hora, 1.000
 por dia) com os preços do TCGplayer; a busca devolve 100 cartas com preço por
-pedido, então cada coleta gasta uns 5. A chave fica no Vault do Supabase
+pedido, então cada coleta gasta uns 8. A chave fica no Vault do Supabase
 (segredo `pokewallet`) e nunca sai do banco.
 
 **Os preços vêm em dólar e são convertidos.** Cada coleta pega a cotação do dia
@@ -197,7 +208,7 @@ O `site.yml` só publica no Pages quando `index.html` ou `painel_precos.html` mu
 - **Tenho**: fica no Supabase (tabela `cartas_marcadas`), uma lista só e sem
   login: quem abre o painel vê as mesmas marcações e pode mexer nelas. O
   navegador guarda uma cópia; quando o Supabase responde, vale o que está lá.
-  A tabela só aceita códigos de carta (`30C/001`, `30C-C/12`...), para não
+  A tabela só aceita códigos de carta (`30C/001`, `25C-C/015b`...), para não
   virar depósito de outra coisa. **Exportar marcações** baixa uma cópia.
 
 Aberto direto do disco (`file://`), o painel também funciona: ele lê do

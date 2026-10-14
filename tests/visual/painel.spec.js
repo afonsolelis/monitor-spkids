@@ -104,6 +104,23 @@ test("promos de 30 anos", async ({ page }) => {
   await expect(page).toHaveScreenshot("promos.png", { fullPage: true });
 });
 
+// As edicoes de 25 anos: as 6 siglas no filtro, na ordem do banco, e uma
+// carta com sufixo (015b) com o detalhe aberto na tela estreita.
+test("edicoes de 25 anos", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await abrir(page);
+  const opcoes = await page.locator("#f-edicao option").evaluateAll(os => os.map(o => o.value));
+  expect(opcoes).toEqual(["", "30C", "30C-C", "30C-P", "25C", "25C-C", "25C-P"]);
+  await page.locator("#f-edicao").selectOption("25C-C");
+  await expect(page.locator("tr.carta")).toHaveCount(1);
+  await expect(page.locator("tr.carta .nome-en")).toHaveText("#015b\u00a0·\u00a025C\u2011C");
+  await page.locator('tr.carta[data-k="25C-C/015b"]').click();
+  await page.mouse.move(0, 0);
+  await expect(page.locator("tr.detalhe")).toBeVisible();
+  expect(await cortePelaTabela(page), "largura escondida pelo overflow da tabela").toBeLessThanOrEqual(0);
+  await expect(page).toHaveScreenshot("edicao-25.png", { fullPage: true });
+});
+
 test("detalhe da carta", async ({ page }) => {
   await abrir(page);
   await page.locator('tr.carta[data-k="30C-C/149"]').click();
