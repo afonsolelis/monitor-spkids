@@ -4,9 +4,15 @@
 -- deposito.
 
 create table if not exists public.cartas_marcadas (
-  carta     text primary key check (carta ~ '^30C(-C)?/[0-9A-Za-z]{1,6}$'),
+  carta     text primary key check (carta ~ '^30C(-C|-P)?/[0-9A-Za-z]{1,6}$'),
   criado_em timestamptz not null default now()
 );
+
+-- O check fica fora do create table para valer tambem na tabela que ja
+-- existe: a edicao de promos (30C-P) entrou depois e era recusada.
+alter table public.cartas_marcadas drop constraint if exists cartas_marcadas_carta_check;
+alter table public.cartas_marcadas add constraint cartas_marcadas_carta_check
+  check (carta ~ '^30C(-C|-P)?/[0-9A-Za-z]{1,6}$');
 
 alter table public.cartas_marcadas enable row level security;
 
@@ -28,9 +34,13 @@ create policy "todos desmarcam" on public.cartas_marcadas
 -- lista so, sem login. Quando a carta chega e vira "tenho", o painel tira a
 -- encomenda.
 create table if not exists public.cartas_encomendadas (
-  carta     text primary key check (carta ~ '^30C(-C)?/[0-9A-Za-z]{1,6}$'),
+  carta     text primary key check (carta ~ '^30C(-C|-P)?/[0-9A-Za-z]{1,6}$'),
   criado_em timestamptz not null default now()
 );
+
+alter table public.cartas_encomendadas drop constraint if exists cartas_encomendadas_carta_check;
+alter table public.cartas_encomendadas add constraint cartas_encomendadas_carta_check
+  check (carta ~ '^30C(-C|-P)?/[0-9A-Za-z]{1,6}$');
 
 alter table public.cartas_encomendadas enable row level security;
 
