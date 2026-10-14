@@ -2,6 +2,55 @@
  "gerado_em": "2026-09-30T16:50:53.805222+00:00",
  "fontes": [
   {
+   "id": "autoesporte",
+   "nome": "Autoesporte",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "autopapo",
+   "nome": "AutoPapo",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "flatout",
+   "nome": "FlatOut",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "g1-carros",
+   "nome": "g1 Carros",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "gn-carros-eletricos",
+   "nome": "Google Notícias",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "ig-carros",
+   "nome": "iG Carros",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
+   "id": "quatro-rodas",
+   "nome": "Quatro Rodas",
+   "tema": "carros",
+   "ok_em": "2026-09-30T16:50:53.805222+00:00",
+   "erro": null
+  },
+  {
    "id": "nasa",
    "nome": "NASA",
    "tema": "ciencia",
@@ -244,6 +293,15 @@
    "p": "2026-09-30T16:20:00+00:00"
   },
   {
+   "t": "Primeiro carro 100% elétrico da Volkswagen começa a ser vendido no Brasil",
+   "l": "https://g1.globo.com/carros/noticia/2026/09/30/id4.ghtml",
+   "r": "ID.4, primeiro carro 100% elétrico da Volkswagen a ser vendido no Brasil, chega às concessionárias com autonomia de até 500 km e preço a partir de R$ 299.990.",
+   "i": "https://s2-g1.glbimg.com/id4.jpg",
+   "f": "g1-carros",
+   "tm": "carros",
+   "p": "2026-09-30T16:20:00+00:00"
+  },
+  {
    "t": "Computador quântico da IBM faz em 19 segundos cálculo que PC \"comum\" levaria 110 anos",
    "l": "https://canaltech.com.br/hardware/computador-quantico-da-ibm-faz-em-19-segundos-calculo-que-pc-comum-levaria-110-anos/",
    "r": "O processador quântico Nighthawk r2, desenvolvido pela IBM , alcançou um novo marco na computação avançada ao concluir uma tarefa de amostragem de circuitos aleatórios em apenas 19 segundos . O experimento gerou um milhão de amostras complexas, um volume de cálculos que, segundo…",
@@ -478,6 +536,15 @@
    "p": "2026-09-30T12:27:27+00:00"
   },
   {
+   "t": "Renault Kwid 2027: qual versão mais vale a pena? Compare em detalhes",
+   "l": "https://autoesporte.globo.com/carros/noticia/2026/09/30/kwid-2027.ghtml",
+   "r": "O Renault Kwid 2027 passou por uma grande reestilização, a segunda desde que chegou ao Brasil, e agora tem três versões com preços entre R$ 82 mil e R$ 95 mil.",
+   "i": "https://s2-autoesporte.glbimg.com/kwid.jpg",
+   "f": "autoesporte",
+   "tm": "carros",
+   "p": "2026-09-30T12:05:00+00:00"
+  },
+  {
    "t": "Mulberry may reshape gut bacteria and influence metabolism",
    "l": "https://www.sciencedaily.com/releases/2026/09/260928100551.htm",
    "r": "Mulberry compounds may reshape the gut microbiome in ways that support intestinal health and metabolism, with some combinations showing especially strong effects in animal studies. However, the results vary depending on the plant part and processing method, and the benefits have…",
@@ -494,6 +561,15 @@
    "f": "sciencedaily",
    "tm": "ciencia",
    "p": "2026-09-30T11:34:31+00:00"
+  },
+  {
+   "t": "Nordeste já responde por 25% das vendas de carros elétricos no país - Diário do Nordeste",
+   "l": "https://news.google.com/rss/articles/carros-eletricos-nordeste",
+   "r": "",
+   "i": "",
+   "f": "gn-carros-eletricos",
+   "tm": "carros",
+   "p": "2026-09-29T14:30:00+00:00"
   },
   {
    "t": "What's the intended difficulty for Gears of War: E-Day? \"I can tell you right now, it's Hardcore\" says The Coalition creative director",

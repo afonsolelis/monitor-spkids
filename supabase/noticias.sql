@@ -47,7 +47,7 @@ create policy "todos leem" on public.noticias for select to anon, authenticated 
 -- existe quando entra um tema novo.
 alter table public.fontes drop constraint if exists fontes_tema_check;
 alter table public.fontes add constraint fontes_tema_check
-  check (tema in ('tecnologia', 'ia', 'games', 'nintendo', 'pokemon', 'pokemon-tcg', 'ciencia'));
+  check (tema in ('tecnologia', 'ia', 'games', 'nintendo', 'pokemon', 'pokemon-tcg', 'carros', 'ciencia'));
 
 -- --------------------------------------------------------------- fontes
 -- O Google Noticias por busca cobre Pokemon em portugues, que quase nao tem
@@ -79,6 +79,15 @@ insert into public.fontes as f (id, nome, tema, url) values
   ('gn-pokemon-tcg',   'Google Notícias',       'pokemon-tcg', 'https://news.google.com/rss/search?q=Pok%C3%A9mon+TCG+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
   ('gn-pokemon-tcg-en','Google News',           'pokemon-tcg', 'https://news.google.com/rss/search?q=%22Pok%C3%A9mon+TCG%22+when:3d&hl=en-US&gl=US&ceid=US:en'),
   ('nl-pokemon-tcg',   'Nintendo Life',         'pokemon-tcg', 'https://www.nintendolife.com/feeds/news/tags/pokemon-trading-card-game'),
+  -- Carros: UOL Carros vem sem data e em ISO-8859-1 sem declarar; Motor1 e
+  -- InsideEVs bloqueiam o http do Supabase. Ficaram de fora.
+  ('autoesporte',      'Autoesporte',           'carros',      'https://autoesporte.globo.com/rss/autoesporte/'),
+  ('quatro-rodas',     'Quatro Rodas',          'carros',      'https://quatrorodas.abril.com.br/feed/'),
+  ('g1-carros',        'g1 Carros',             'carros',      'https://g1.globo.com/rss/g1/carros/'),
+  ('ig-carros',        'iG Carros',             'carros',      'https://carros.ig.com.br/rss.xml'),
+  ('autopapo',         'AutoPapo',              'carros',      'https://www.autopapo.com.br/feed/'),
+  ('flatout',          'FlatOut',               'carros',      'https://www.flatout.com.br/feed/'),
+  ('gn-carros-eletricos', 'Google Notícias',    'carros',      'https://news.google.com/rss/search?q=%22carro+el%C3%A9trico%22+OR+%22carros+el%C3%A9tricos%22+when:3d&hl=pt-BR&gl=BR&ceid=BR:pt-419'),
   ('pesquisa-fapesp',  'Pesquisa FAPESP',       'ciencia',     'https://revistapesquisa.fapesp.br/feed/'),
   ('sciencedaily',     'ScienceDaily',          'ciencia',     'https://www.sciencedaily.com/rss/top/science.xml'),
   ('nasa',             'NASA',                  'ciencia',     'https://www.nasa.gov/feed/'),

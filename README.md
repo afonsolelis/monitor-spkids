@@ -50,12 +50,14 @@ fonte (`fontes.erro`) e aparece no rodapé do site.
 | Nintendo | Nintendo Boy, Nintendo Life, Nintendo Everything, Google Notícias (Zelda, Super Mario, Mario Kart, Mario Party e Switch 2) |
 | Pokémon | Google Notícias (busca em português), Google News (Pokémon Winds and Waves, rumores e vazamentos), Nintendo Life, PokeJungle |
 | Pokémon TCG | Google Notícias (português e inglês), Nintendo Life |
+| Carros | Autoesporte, Quatro Rodas, g1 Carros, iG Carros, AutoPapo, FlatOut, Google Notícias (carros elétricos) |
 | Ciência | Pesquisa FAPESP, ScienceDaily, NASA, Quanta Magazine, Nature |
 
 Pokémon em português quase não tem site com RSS próprio, por isso a busca do
 Google Notícias (`when:3d` corta matéria velha). O site mostra o veículo real,
 que o Google põe no fim do título. A PokeBeach responde 403 (Cloudflare) e
-ficou de fora.
+ficou de fora. Em carros, Motor1 e InsideEVs também bloqueiam, e o UOL Carros
+vem sem data e com acento quebrado.
 
 ### Mega-Sena
 

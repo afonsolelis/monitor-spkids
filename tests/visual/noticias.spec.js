@@ -18,7 +18,7 @@ const MEGA = fs.readFileSync(path.join(__dirname, "fixtures/mega.json"), "utf8")
 const AGORA = new Date("2026-09-30T17:00:00Z");
 const IMAGEM = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250"><rect width="400" height="250" fill="#9a9890"/></svg>`;
 
-async function abrir(page, { dados = "ok", mega = "ok" } = {}) {
+async function abrir(page, { dados = "ok", mega = "ok", hash = "" } = {}) {
   await page.clock.setFixedTime(AGORA);
   // A Mega-Sena so responde depois do Supabase: as duas redesenham a lista e,
   // em ordem livre, o antialiasing de um canto variava entre execucoes.
@@ -42,7 +42,7 @@ async function abrir(page, { dados = "ok", mega = "ok" } = {}) {
     if (pedido.resourceType() === "image") return rota.fulfill({ contentType: "image/svg+xml", body: IMAGEM });
     return rota.abort();
   });
-  await page.goto(PAGINA);
+  await page.goto(PAGINA + hash);
   if (dados === "ok") await expect(page.locator(".item:not(.fixa)").first()).toBeVisible();
   else await expect(page.locator("#aviso")).toBeVisible();
   if (mega === "ok") await expect(page.locator(".fixa")).toBeVisible();
@@ -90,6 +90,15 @@ test("noticias: filtro por tema", async ({ page }) => {
   await expect(page.locator(".item:not(.fixa) .tema").first()).toHaveText("Pokémon TCG");
   expect(await page.locator(".item:not(.fixa) .tema").allTextContents()).toEqual(Array(6).fill("Pokémon TCG"));
   await expect(page).toHaveURL(/#pokemon-tcg$/);
+});
+
+// A captura vem da pagina aberta ja com o tema no endereco. Depois do clique,
+// o chip pressionado e redesenhado e os cantos variavam 1 tom entre execucoes
+// (desde que a lista passou a ser redesenhada quando a Mega-Sena chega).
+test("noticias: tema pelo endereco", async ({ page }) => {
+  await abrir(page, { hash: "#pokemon-tcg" });
+  await expect(page.getByRole("button", { name: /Pokémon TCG/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".item:not(.fixa) .tema").first()).toHaveText("Pokémon TCG");
   await expect(page).toHaveScreenshot("noticias-tema.png");
 });
 
