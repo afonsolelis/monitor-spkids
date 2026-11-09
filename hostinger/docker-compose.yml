@@ -13,9 +13,11 @@
 # docker exec -i <container> psql -U postgres -d spkids. Dados em
 # /data/monitor-spkids/pgdata. As senhas sao variaveis da aplicacao no
 # Coolify (copia em ~/repos/hostinger/.env, SPKIDS_PG_*).
+# Os caminhos de build partem da raiz do repositorio: o Coolify roda o compose
+# com --project-directory na raiz, nao nesta pasta.
 services:
   postgres:
-    build: ./postgres
+    build: ./hostinger/postgres
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: spkids
@@ -68,7 +70,7 @@ services:
 
   site:
     build:
-      context: ..
+      context: .
       dockerfile: hostinger/site/Dockerfile
     expose:
       - '80'
