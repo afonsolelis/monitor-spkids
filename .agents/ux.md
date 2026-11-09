@@ -65,7 +65,7 @@ Perfis: `desktop-claro`, `desktop-escuro` (1280×900), `celular-claro`,
 - **Responsivo**: nenhuma rolagem horizontal (o teste da lista confere);
   colunas escondidas no celular continuam fazendo sentido; alvos de toque
   com pelo menos 24 × 24 px.
-- **Estados**: carregando, erro do Supabase, vazio de filtro, botão em
+- **Estados**: carregando, erro da API, vazio de filtro, botão em
   espera, detalhe aberto. Estado novo sem teste = peça o teste (ou escreva).
 - **Consistência**: raio de borda, sombra e peso de fonte iguais para
   componentes iguais.

@@ -1,6 +1,6 @@
 // Regressao visual da pagina de noticias (index.html). Mesmo esquema do
 // painel.spec.js: arquivo local, rede toda interceptada.
-//   - Supabase: painel_noticias devolve fixtures/noticias.json (gravado do
+//   - API: painel_noticias devolve fixtures/noticias.json (gravado do
 //     banco real, com uma fonte marcada com erro);
 //   - Mega-Sena: ultimo.json do Resultado Mega devolve fixtures/mega.json
 //     (gravado da API real, concurso acumulado);
@@ -20,21 +20,21 @@ const IMAGEM = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250"
 
 async function abrir(page, { dados = "ok", mega = "ok", hash = "" } = {}) {
   await page.clock.setFixedTime(AGORA);
-  // A Mega-Sena so responde depois do Supabase: as duas redesenham a lista e,
+  // A Mega-Sena so responde depois da API: as duas redesenham a lista e,
   // em ordem livre, o antialiasing de um canto variava entre execucoes.
-  let supabaseRespondeu;
-  const depoisDoSupabase = new Promise(r => { supabaseRespondeu = r; });
+  let apiRespondeu;
+  const depoisDaApi = new Promise(r => { apiRespondeu = r; });
   await page.route("**/*", async rota => {
     const pedido = rota.request();
     if (pedido.url().startsWith("file:")) return rota.continue();
-    if (pedido.url().includes("/rest/v1/rpc/painel_noticias")) {
+    if (pedido.url().includes("/rpc/painel_noticias")) {
       await (dados === "ok"
         ? rota.fulfill({ contentType: "application/json", body: DADOS })
         : rota.fulfill({ status: 503, contentType: "application/json", body: '{"message":"fora do ar"}' }));
-      return supabaseRespondeu();
+      return apiRespondeu();
     }
     if (pedido.url() === "https://resultadomega.com.br/api/ultimo.json") {
-      await depoisDoSupabase;
+      await depoisDaApi;
       return mega === "ok"
         ? rota.fulfill({ contentType: "application/json", body: MEGA })
         : rota.fulfill({ status: 503, contentType: "application/json", body: '{"erro":"fora do ar"}' });

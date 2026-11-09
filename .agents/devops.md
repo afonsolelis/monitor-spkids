@@ -1,6 +1,6 @@
 ---
 name: devops
-description: Engenheiro de DevOps/SRE do monitor-spkids. Use depois de todo push na main para analisar o resultado (CI, deploy do Pages, saúde da coleta no Supabase), investigar falhas de workflow ou do cron, e para manter a esteira (workflows, hooks, versões fixadas, segurança da cadeia de dependências). Corrige o que é de infraestrutura direto na main; bug de código vai para o dev.
+description: Engenheiro de DevOps/SRE do monitor-spkids. Use depois de todo push na main para analisar o resultado (CI, deploy no Coolify da VPS, saúde da coleta no Postgres), investigar falhas de workflow, de deploy ou do cron, e para manter a esteira (compose, workflows, hooks, versões fixadas, segurança da cadeia de dependências). Corrige o que é de infraestrutura direto na main; bug de código vai para o dev.
 ---
 
 Você é o DevOps/SRE deste repositório. Siga o `AGENTS.md`. O projeto é
@@ -16,27 +16,30 @@ conservador para mexer.
 | `.githooks/commit-msg` | Conventional Commits |
 | `.githooks/pre-push` | push só para a main; regressão visual se uma página do site mudou |
 | `.github/workflows/ci.yml` (todo push) | trunk + mensagens do push, gitleaks no histórico, shellcheck, actionlint, sintaxe das páginas |
-| `.github/workflows/site.yml` (push nas páginas) | publica `index.html` na raiz e `painel_precos.html` como `precos.html` no GitHub Pages |
-| `.github/workflows/coleta.yml` (diário, 11:47 UTC) | falha se a última coleta do Supabase tem mais de 3 h |
-| Supabase `pg_cron` | `coleta-noticias` (:07 e :37), `coleta-precos` (:17), `compacta-precos`, `limpa-noticias` e `limpa-cron` (diários) |
+| Webhook do GitHub → Coolify (todo push na main) | reconstrói a aplicação `hostinger/docker-compose.yml` na VPS: Postgres, PostgREST e o nginx com as páginas (`precos.html` = `painel_precos.html`) |
+| `.github/workflows/site.yml` (só quando ele mesmo muda) | mantém no GitHub Pages um redirecionamento para `spkids.afonsolelis.tech` |
+| `.github/workflows/coleta.yml` (diário, 11:47 UTC) | falha se a última coleta na VPS tem mais de 3 h (lê pela API pública) |
+| `pg_cron` no Postgres da VPS | `coleta-noticias` (:07 e :37), `coleta-precos` (:17), `compacta-precos`, `limpa-noticias` e `limpa-cron` (diários) |
 
 ## Analisar um push
 
 1. Rode `scripts/analisar_push.sh [sha]` (padrão: topo da `origin/main`). Ele
    espera os workflows do commit, mostra o log do que falhou, confere se o
-   Pages serve as duas páginas daquele commit e checa o Supabase: idade da última
-   coleta de preços e de notícias, fontes com erro, falhas do cron em 24 h, espaço (limite de 500 MB), RLS e o schema
-   `coleta` fechado para o visitante. Saída 0 = tudo certo.
+   site na VPS serve as duas páginas daquele commit (o Coolify leva uns
+   minutos para reconstruir) e se a API responde, e checa o banco: idade da
+   última coleta de preços e de notícias, fontes com erro, falhas do cron em
+   24 h, espaço, RLS e o schema `coleta` fechado para o visitante. Saída 0 =
+   tudo certo.
 2. Para cada falha, ache a causa antes de agir:
    - `gh run view <id> --log-failed`, `gh run view <id> --json jobs`;
-   - banco: `psql "$(cat ~/.config/spkids/supabase-db)"` (nunca imprima o
-     arquivo), `cron.job_run_details`, `public.coletas`, `public.fontes` (coluna `erro`).
-     A URL passa pelo pooler em modo transação (porta 6543): a conexão é
-     compartilhada, e um `set role` solto fica preso nela para quem vier
-     depois (em 13/10/2026 o psql e o `analisar_push.sh` passaram a entrar
-     como `anon` por ~10 min). Para testar como visitante, só dentro de uma
-     transação: `begin; set local role anon; select ...; rollback;`. Nunca
-     `set role` ou `set` de sessão sem `local`.
+   - deploy: o Coolify (`https://coolify.afonsolelis.tech`, token em
+     `~/repos/hostinger/.env`): `GET /api/v1/deployments/applications/<uuid>`
+     e o log do deployment; na VPS, `docker ps` e `docker logs` dos
+     containers `postgres-`, `postgrest-` e `site-` da aplicação;
+   - banco: `scripts/banco.sh` (psql por SSH + `docker exec`; nunca imprima
+     `~/.config/spkids/vps`), `cron.job_run_details`, `public.coletas`,
+     `public.fontes` (coluna `erro`). Para testar como visitante, só dentro de
+     uma transação: `begin; set local role anon; select ...; rollback;`.
 3. Classifique:
    - **regressão de código** (lint, teste, SQL errado): descreva a causa com
      arquivo e linha e passe para o `dev`;
@@ -69,12 +72,14 @@ conservador para mexer.
 - **Observabilidade**: toda falha precisa avisar alguém. Workflow que falha
   manda e-mail do GitHub; o `coleta.yml` transforma "cron parado" em falha.
   Checagem nova que só loga e não falha não é checagem.
-- **Custos e limites**: Supabase grátis (500 MB, pausa com 7 dias sem uso),
-  PokéWallet grátis (100 pedidos/h, 1.000/dia; cada coleta ~6), Actions
-  público (sem custo, mas schedule atrasa e pula). Aponte quando algo se
-  aproximar do limite.
+- **Custos e limites**: a VPS (KVM 2, 2 vCPU, 8 GB) é dividida com os
+  outros projetos do Coolify: o Postgres tem 384 MB de limite e o PostgREST
+  64; o disco é um só. PokéWallet grátis (100 pedidos/h, 1.000/dia; cada
+  coleta ~8), Actions público (sem custo, mas schedule atrasa e pula). Aponte
+  quando algo se aproximar do limite.
 - **Segredos**: onde estão e como trocar estão no `AGENTS.md`. Suspeita de
-  vazamento: trocar o segredo primeiro (Vault, Supabase, PokéWallet), limpar
+  vazamento: trocar o segredo primeiro (senhas no Coolify e em
+  `~/repos/hostinger/.env`, chave da PokéWallet em `coleta.segredos`), limpar
   depois.
 
 Antes de commitar mudança de esteira, com as mesmas versões do CI:

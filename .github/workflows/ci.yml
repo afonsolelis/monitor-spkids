@@ -103,7 +103,14 @@ jobs:
       - run: pip install "shellcheck-py==${SHELLCHECK}" "actionlint-py==${ACTIONLINT}"
 
       - name: Shell
-        run: shellcheck ./*.sh scripts/*.sh .githooks/*
+        run: shellcheck ./*.sh scripts/*.sh .githooks/* hostinger/postgres/inicio/*.sh
+
+      # O compose da VPS precisa pelo menos ser valido; as senhas vem do Coolify.
+      - name: Compose da VPS
+        env:
+          POSTGRES_PASSWORD: x
+          AUTHENTICATOR_PASSWORD: x
+        run: docker compose -f hostinger/docker-compose.yml config -q
 
       - name: Workflows
         run: actionlint -color

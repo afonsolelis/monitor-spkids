@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prepara esta maquina para mexer no repositorio: hooks do git e Playwright
 # dos testes visuais. Nada roda aqui de forma agendada: as coletas rodam no
-# pg_cron do Supabase.
+# pg_cron do Postgres na VPS (hostinger/).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,4 +31,4 @@ fi
 
 echo
 echo "pronto."
-echo "site: https://afonsolelis.github.io/monitor-spkids/"
+echo "site: https://spkids.afonsolelis.tech/"

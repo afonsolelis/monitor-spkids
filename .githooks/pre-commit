@@ -9,8 +9,9 @@ if [ "$ramo" != "main" ]; then
   exit 1
 fi
 
-# Chave da PokeWallet, URL do Postgres com senha, chave secreta do Supabase.
-padrao='pk_live_[A-Za-z0-9]{8,}|postgres(ql)?://[^:@/ ]+:[^@/ ]+@|sb_secret_[A-Za-z0-9_-]{8,}|service_role'
+# Chave da PokeWallet, URL do Postgres com senha (uma variavel ${...} no lugar
+# da senha, como no compose, pode), chave secreta do Supabase.
+padrao='pk_live_[A-Za-z0-9]{8,}|postgres(ql)?://[^:@/ ]+:[^@/ $]+@|sb_secret_[A-Za-z0-9_-]{8,}|service_role'
 if git diff --cached -U0 --no-color | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eq "$padrao"; then
   echo "commit recusado: parece haver um segredo no que vai ser commitado:" >&2
   git diff --cached -U0 --no-color | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eo "$padrao" | sed 's/:[^@]*@/:***@/' | sort -u >&2

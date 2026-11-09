@@ -1,0 +1,6 @@
+# Contexto de build do site (hostinger/site/Dockerfile): so as duas paginas e a
+# propria pasta hostinger/ interessam.
+*
+!index.html
+!painel_precos.html
+!hostinger/

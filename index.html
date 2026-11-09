@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Notícias</title>
-<!-- Pagina inicial publicada no GitHub Pages. As noticias vem do Supabase ao
-     abrir (rpc painel_noticias, ver supabase/noticias.sql); a coleta dos
-     feeds roda no pg_cron do proprio Supabase. -->
+<!-- Pagina inicial do site, servida pelo nginx na VPS (hostinger/). As
+     noticias vem da API ao abrir (rpc painel_noticias, ver banco/noticias.sql);
+     a coleta dos feeds roda no pg_cron do proprio banco. -->
 <style>
 :root {
   color-scheme: light;
@@ -196,10 +196,9 @@ button.mais:hover { background: var(--hover); }
 </main>
 
 <script>
-// Leitura direta pela API REST do Supabase: uma chamada so, sem biblioteca.
-// A chave publicavel so le (ver supabase/noticias.sql).
-const SUPABASE_URL = "https://lwamaovuxcevsjfvtqhf.supabase.co";
-const SUPABASE_CHAVE = "sb_publishable_j0O_u0t7-lDCtBbmqaIz3A_8vAIGcyJ";
+// Leitura direta pela API (PostgREST na VPS): uma chamada so, sem biblioteca
+// nem chave. O visitante so le (ver banco/noticias.sql).
+const API_URL = "https://spkids-api.afonsolelis.tech";
 
 const TEMAS = [
   ["", "Tudo"],
@@ -369,7 +368,7 @@ function item(n) {
 }
 
 // Mega-Sena: a API do Resultado Mega (resultadomega.com.br/api) e publica,
-// sem chave e com CORS, entao a pagina le direto; o Supabase nao entra.
+// sem chave e com CORS, entao a pagina le direto; a API do site nao entra.
 const MEGA_URL = "https://resultadomega.com.br/api/ultimo.json";
 const fmtReal = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const fmtMilhoes = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
@@ -453,15 +452,15 @@ function desenharFontes(lista) {
 
 async function carregar() {
   lerVisita();
-  // Em paralelo com o Supabase e sem segurar a lista: quando chegar, redesenha.
+  // Em paralelo com a API e sem segurar a lista: quando chegar, redesenha.
   // Se a API falhar, o cartao simplesmente nao aparece.
   carregarMega().then(m => { mega = m; desenharLista(); }, e => console.warn("Mega-Sena:", e.message));
   const inicial = location.hash.slice(1);
   if (NOME_TEMA[inicial] && inicial) estado.tema = inicial;
   try {
-    const resp = await fetch(SUPABASE_URL + "/rest/v1/rpc/painel_noticias", {
+    const resp = await fetch(API_URL + "/rpc/painel_noticias", {
       method: "POST",
-      headers: { apikey: SUPABASE_CHAVE, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: "{}",
     });
     if (!resp.ok) throw new Error("HTTP " + resp.status);

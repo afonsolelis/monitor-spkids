@@ -6,18 +6,22 @@ especializados ficam em [`.agents/`](.agents/).
 
 ## O projeto
 
-Um site no GitHub Pages com duas abas, as duas só casca (leem do Supabase ao
-abrir). Nada roda em máquina local.
+Um site com duas abas, as duas só casca (leem da API ao abrir). Tudo roda na
+VPS da Hostinger, pelo Coolify, como uma aplicação docker-compose construída
+deste repositório a cada push na main (`hostinger/`): Postgres 17 com pg_cron
+e http, PostgREST (`https://spkids-api.afonsolelis.tech`) e nginx com as
+páginas (`https://spkids.afonsolelis.tech`). Nada roda em máquina local.
 
-- `supabase/noticias.sql`: coleta dos feeds RSS/Atom de `public.fontes` dentro
-  do Supabase (pg_cron às :07 e :37). Pública só `painel_noticias()`.
-- `index.html`: a aba Notícias, na raiz do Pages.
-- `supabase/coleta_precos.sql`: coleta de preço das cartas de 30 e 25 anos
-  (pg_cron às :17, chave da PokéWallet no Vault). Públicas só
+- `banco/noticias.sql`: coleta dos feeds RSS/Atom de `public.fontes` dentro
+  do Postgres (pg_cron às :07 e :37). Pública só `painel_noticias()`.
+- `index.html`: a aba Notícias, na raiz do site.
+- `banco/coleta_precos.sql`: coleta de preço das cartas de 30 e 25 anos
+  (pg_cron às :17, chave da PokéWallet em `coleta.segredos`). Públicas só
   `painel_precos()` e `atualizar_precos()`.
 - `painel_precos.html`: a aba Cartas, publicada como `precos.html`.
   Fica até a coleção estar completa.
 - Funções internas das duas coletas no schema `coleta`, fora da API.
+- `hostinger/`: o compose, a imagem do Postgres e o nginx do site.
 - `tests/visual/`: regressão visual pixel a pixel das duas páginas (Playwright).
 
 Detalhes no [README](README.md).
@@ -27,7 +31,7 @@ Detalhes no [README](README.md).
 - **Tudo direto na `main`.** Sem branch, sem pull request, sem etapa de
   revisão. Commit pequeno, coerente, e `git push origin main` logo em seguida.
 - Mudança que depende de um passo externo antes de ir ao ar (rodar SQL no
-  Supabase, criar segredo) segue a ordem: primeiro o passo externo, depois o
+  banco, criar segredo) segue a ordem: primeiro o passo externo, depois o
   commit na main. Nunca deixar trabalho parado numa branch esperando.
 - Não reescrever histórico publicado (`push --force`, `rebase` do que já subiu).
   Errou? Commit novo corrigindo, ou `git revert`.
@@ -47,7 +51,7 @@ Toda mensagem segue [Conventional Commits](https://www.conventionalcommits.org/p
   `build`, `ci`, `chore`, `revert`. Mudança que quebra algo: `!` depois do
   tipo/escopo (`feat(coleta)!: ...`) e `BREAKING CHANGE:` no corpo.
 - **Escopos** usados aqui: `noticias`, `resumo`, `site`, `painel`, `coleta`,
-  `supabase`, `harness`, `ci`, `docs`. Minúsculos.
+  `banco`, `hostinger`, `harness`, `ci`, `docs`. Minúsculos.
 - **Descrição** em português, no presente, começando em minúscula, sem ponto
   final, primeira linha com até 72 caracteres.
   Ex.: `fix(coleta): tolera página vazia da PokéWallet`.
@@ -73,17 +77,22 @@ analisa o resultado com `scripts/analisar_push.sh`.
 
 O repositório é **público**. Nunca vão para o git nem para a saída de comando:
 
-- A chave da PokéWallet: só no Vault do Supabase (segredo `pokewallet`).
-- `~/.config/spkids/supabase-db`: URL do Postgres com senha. Use sempre
-  `psql "$(cat ~/.config/spkids/supabase-db)"`, sem imprimir o conteúdo.
-- A chave `sb_publishable_...` que está no painel é pública de propósito.
+- A chave da PokéWallet: só na tabela `coleta.segredos` do banco (schema
+  fechado para a API).
+- As senhas do Postgres (`postgres` e `authenticator`): variáveis da
+  aplicação no Coolify, com cópia em `~/repos/hostinger/.env` (`SPKIDS_PG_*`).
+- O banco não tem porta pública. Consulta é por SSH na VPS e `docker exec`
+  no container do Postgres; os dados de acesso ficam em `~/.config/spkids/vps`
+  (ver README). Nunca imprima esses arquivos.
+- A API é pública e sem chave: o visitante só lê e mexe nas marcações.
 
 ## Antes de commitar
 
 | Mexeu em | Rode |
 |---|---|
 | `index.html`, `painel_precos.html` | `npm run test:visual` e peça a revisão do agente `ux` |
-| `supabase/*.sql` | o script inteiro no banco (`psql -1 -v ON_ERROR_STOP=1 -f`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
+| `banco/*.sql` | o script inteiro no banco (`scripts/banco.sh -1 -v ON_ERROR_STOP=1 -f banco/x.sql`); ele precisa poder rodar de novo sem estrago. Depois confira `select * from public.coletas order by momento desc limit 3` |
+| `hostinger/*` | `docker compose -f hostinger/docker-compose.yml config -q` (com `POSTGRES_PASSWORD` e `AUTHENTICATOR_PASSWORD` quaisquer no ambiente) e `shellcheck` nos `.sh`; o deploy de verdade é o push |
 | `*.sh`, `.githooks/*` | `bash -n` e `shellcheck` |
 | `.github/workflows/*` | `uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint` (com o shellcheck junto, senão os blocos `run:` não são checados) |
 
@@ -97,7 +106,7 @@ olhar as imagens novas.
 |---|---|
 | [`dev`](.agents/dev.md) | implementar, corrigir ou refatorar qualquer parte do projeto |
 | [`ux`](.agents/ux.md) | revisar pixel a pixel toda mudança visível nas páginas, com o Playwright |
-| [`devops`](.agents/devops.md) | analisar todo push (CI, deploy, saúde do Supabase), investigar falhas e manter a esteira |
+| [`devops`](.agents/devops.md) | analisar todo push (CI, deploy no Coolify, saúde do banco na VPS), investigar falhas e manter a esteira |
 
 Fluxo: `dev` implementa → `ux` revisa (se mexeu numa página) → `dev` corrige o
 que o `ux` apontar → commit e push na main → `devops` analisa o push e, se

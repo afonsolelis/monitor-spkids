@@ -1,11 +1,12 @@
--- Coleta de noticias dentro do Supabase, no mesmo molde da coleta de precos:
--- a funcao coleta.coletar_noticias() le os feeds RSS/Atom de public.fontes,
--- grava em public.noticias e o pg_cron roda a cada meia hora. O site le tudo
--- por rpc('painel_noticias').
+-- Coleta de noticias dentro do proprio Postgres (na VPS da Hostinger), no
+-- mesmo molde da coleta de precos: a funcao coleta.coletar_noticias() le os
+-- feeds RSS/Atom de public.fontes, grava em public.noticias e o pg_cron roda
+-- a cada meia hora. O site le tudo por rpc('painel_noticias').
 --
--- Rodar inteiro no SQL Editor do Supabase (ou psql -1 -f). Pode rodar de novo
+-- Rodar inteiro no banco (psql -1 -v ON_ERROR_STOP=1 -f). Pode rodar de novo
 -- sem estragar nada: as fontes sao atualizadas pelo id.
 
+create schema if not exists extensions;
 create extension if not exists http with schema extensions;
 create extension if not exists pg_cron with schema pg_catalog;
 
@@ -269,7 +270,7 @@ begin
   perform extensions.http_set_curlopt('CURLOPT_CONNECTTIMEOUT_MS', '10000');
   perform extensions.http_set_curlopt('CURLOPT_TIMEOUT_MS', '20000');
   resposta := extensions.http(('GET', fonte.url,
-    array[extensions.http_header('User-Agent', 'Mozilla/5.0 (compatible; noticias-afonsolelis; +https://afonsolelis.github.io/monitor-spkids/)'),
+    array[extensions.http_header('User-Agent', 'Mozilla/5.0 (compatible; noticias-afonsolelis; +https://spkids.afonsolelis.tech/)'),
           extensions.http_header('Accept', 'application/rss+xml, application/atom+xml, application/xml, text/xml')],
     null, null)::extensions.http_request);
   if resposta.status <> 200 then
@@ -361,7 +362,7 @@ grant execute on function public.painel_noticias(integer) to anon, authenticated
 
 -- ------------------------------------------------------------ agendamento
 select cron.schedule('coleta-noticias', '7,37 * * * *', $$select coleta.coletar_noticias()$$);
--- Noticia de tres meses atras nao volta a ser lida; o banco gratis tem 500 MB.
+-- Noticia de tres meses atras nao volta a ser lida; nao vale o espaco.
 select cron.schedule('limpa-noticias', '45 6 * * *',
   $$delete from public.noticias where publicado_em < now() - interval '90 days'$$);
 

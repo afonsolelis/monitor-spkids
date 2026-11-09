@@ -1,6 +1,6 @@
 # Notícias + cartas Pokémon
 
-**https://afonsolelis.github.io/monitor-spkids/**
+**https://spkids.afonsolelis.tech/**
 
 Um site com duas abas:
 
@@ -10,9 +10,13 @@ Um site com duas abas:
   e das de 25 anos (Celebrations), com a evolução, a tendência e as marcações de "tenho" e
   "a chegar". Fica até a coleção estar completa.
 
-Nada roda nesta máquina. As duas coletas rodam no `pg_cron` do Supabase
-(projeto `lwamaovuxcevsjfvtqhf`) e o GitHub Pages serve só as páginas (que leem
-do Supabase ao abrir).
+Nada roda nesta máquina. Tudo mora na VPS da Hostinger, como uma aplicação
+docker-compose do Coolify construída deste repositório a cada push na main
+(`hostinger/`): um Postgres 17 com `pg_cron` e `http`, onde rodam as duas
+coletas; o PostgREST, que é a API que as páginas leem
+(`https://spkids-api.afonsolelis.tech`); e um nginx com as duas páginas, que
+são só a casca (leem da API ao abrir). O endereço antigo no GitHub Pages
+redireciona para cá.
 
 > Até 30/09/2026 este repositório também monitorava a SP Kids e a Copag B2B
 > esperando a coleção de 30 anos entrar em estoque, com compra automática. A
@@ -20,9 +24,11 @@ do Supabase ao abrir).
 
 | Peça | Onde roda | Arquivo |
 |---|---|---|
-| Coleta de notícias | pg_cron no Supabase (`7,37 * * * *`) | `supabase/noticias.sql` |
-| Coleta de preços | pg_cron no Supabase (`17 * * * *`) | `supabase/coleta_precos.sql` |
-| Site | GitHub Pages | `index.html`, `painel_precos.html` |
+| Coleta de notícias | pg_cron no Postgres da VPS (`7,37 * * * *`) | `banco/noticias.sql` |
+| Coleta de preços | pg_cron no Postgres da VPS (`17 * * * *`) | `banco/coleta_precos.sql` |
+| API | PostgREST na VPS | `hostinger/docker-compose.yml` |
+| Site | nginx na VPS | `index.html`, `painel_precos.html`, `hostinger/site/` |
+| Deploy | Coolify, por webhook do GitHub a cada push | `hostinger/` |
 | Checagem diária das coletas | GitHub Actions | `.github/workflows/coleta.yml` |
 
 ---
@@ -66,14 +72,15 @@ No topo da lista, antes do primeiro dia e com qualquer filtro, fica fixo o
 último resultado da Mega-Sena: concurso, dezenas e se acumulou (com o prêmio
 estimado do próximo) ou quantas apostas acertaram a sena. A página lê direto
 `https://resultadomega.com.br/api/ultimo.json` (API pública, sem chave, com
-CORS); o Supabase não participa. Se a API falhar, o cartão só não aparece.
+CORS); a API do site não participa. Se ela falhar, o cartão só não aparece.
 
 A mesma notícia em dois feeds entra uma vez, com o tema do primeiro que a
 trouxe. Por isso a coleta lê Pokémon TCG, Pokémon e Nintendo antes dos temas
 gerais: a matéria de Pokémon da Nintendo Life cai em Pokémon, não em Nintendo.
 
-Para pôr ou tirar uma fonte, edite a lista no `supabase/noticias.sql` e rode o
-script de novo (ele atualiza pelo `id`). Para só pausar uma:
+Para pôr ou tirar uma fonte, edite a lista no `banco/noticias.sql` e rode o
+script de novo (`scripts/banco.sh -1 -v ON_ERROR_STOP=1 -f banco/noticias.sql`;
+ele atualiza pelo `id`). Para só pausar uma:
 
 ```sql
 update public.fontes set ativa = false where id = 'eurogamer';
@@ -98,10 +105,10 @@ select coleta.coletar_noticias();                                         -- col
 
 ## Preço das cartas
 
-**https://afonsolelis.github.io/monitor-spkids/precos.html**
+**https://spkids.afonsolelis.tech/precos.html**
 
-A coleta roda dentro do Supabase (projeto `lwamaovuxcevsjfvtqhf`), sem nada
-nesta máquina nem no GitHub Actions. Tudo está em `supabase/coleta_precos.sql`:
+A coleta roda dentro do Postgres da VPS, sem nada nesta máquina nem no GitHub
+Actions. Tudo está em `banco/coleta_precos.sql`:
 
 - `coleta.coletar_precos()` busca a cotação do dólar e os preços na PokéWallet e
   grava em `public.precos`. O `pg_cron` roda de hora em hora (`17 * * * *`, job
@@ -110,7 +117,7 @@ nesta máquina nem no GitHub Actions. Tudo está em `supabase/coleta_precos.sql`
   hora (uns 5 a 15 segundos) e o painel recarrega os dados. Entre duas coletas
   há uma espera de 5 minutos, porque o botão é aberto a quem tiver o link e a
   PokéWallet grátis dá 100 pedidos por hora.
-- O GitHub Pages serve só a casca: ao abrir, o painel pede tudo de uma vez a
+- O nginx serve só a casca: ao abrir, o painel pede tudo de uma vez a
   `rpc('painel_precos')`.
 
 Cobre as edições de 30 anos e as de 25 anos (Celebrations, 2021). As edições,
@@ -137,8 +144,8 @@ acesso automatizado (a Liga desde setembro de 2026), e contornar isso seria
 burlar a proteção do site. A pokemontcg.io parou de publicar preços e sai do ar
 em março de 2027. A PokéWallet tem plano grátis (100 pedidos por hora, 1.000
 por dia) com os preços do TCGplayer; a busca devolve 100 cartas com preço por
-pedido, então cada coleta gasta uns 8. A chave fica no Vault do Supabase
-(segredo `pokewallet`) e nunca sai do banco.
+pedido, então cada coleta gasta uns 8. A chave fica na tabela
+`coleta.segredos` (schema fechado para a API) e nunca sai do banco.
 
 **Os preços vêm em dólar e são convertidos.** Cada coleta pega a cotação do dia
 (AwesomeAPI, com a open.er-api.com de reserva) e grava em real. É preço de
@@ -153,12 +160,13 @@ loja brasileira, por isso a série de cada carta dá um degrau nessa data.
 | `precos` | uma linha por carta por coleta: `coletado_em, colecao, numero, preco_min, preco_medio, preco_max`, em reais |
 | `cartas` | catálogo: nome em inglês e em português (herdado da Liga), imagem, link do TCGplayer, quando foi vista por último |
 | `coletas` | cada coleta: quando, de onde (`cron`, `botao`, `manual`, `importado`), quantas cartas, cotação |
-| `cartas_marcadas` | as marcações de "tenho" (`supabase/cartas_marcadas.sql`) |
+| `cartas_marcadas` | as marcações de "tenho" (`banco/cartas_marcadas.sql`) |
 
 Visitante só lê `precos`, `cartas` e `coletas`; quem grava é a coleta. As
 funções internas ficam no schema `coleta`, fora da API.
 
-Para o banco não passar dos 500 MB do plano grátis, o job `compacta-precos`
+Para o banco não crescer à toa (o disco da VPS é dividido com os outros
+projetos), o job `compacta-precos`
 reduz o que tem mais de 30 dias a um ponto por dia por carta (a média). O
 painel já mostra assim o que passou de 14 dias: hora a hora nas duas últimas
 semanas, um ponto por dia antes disso.
@@ -169,12 +177,11 @@ repositório só como arquivo.
 
 ### Acompanhar
 
-O workflow `Coletas no Supabase` (`.github/workflows/coleta.yml`) confere uma
-vez por dia se a última coleta tem menos de 3 horas; se não tiver, falha e o
-GitHub manda e-mail. O acesso diário também conta como uso, e o plano grátis
-do Supabase pausa o projeto depois de 7 dias parado.
+O workflow `Coletas na VPS` (`.github/workflows/coleta.yml`) confere uma vez
+por dia, pela API pública, se a última coleta tem menos de 3 horas; se não
+tiver, falha e o GitHub manda e-mail.
 
-No SQL Editor do Supabase:
+No banco (`scripts/banco.sh` abre um `psql` lá dentro por SSH):
 
 ```sql
 select * from public.coletas order by momento desc limit 10;       -- últimas coletas
@@ -182,16 +189,22 @@ select * from cron.job_run_details order by start_time desc limit 10;  -- erros 
 select public.atualizar_precos();                                   -- coletar agora
 ```
 
-O `site.yml` só publica no Pages quando `index.html` ou `painel_precos.html` muda.
-
 ### Instalar do zero
 
-1. No SQL Editor do Supabase, guardar a chave da PokéWallet (grátis em
-   pokewallet.io): `select vault.create_secret('<chave>', 'pokewallet');`
-2. Colar e rodar `supabase/cartas_marcadas.sql` e depois
-   `supabase/coleta_precos.sql`. O segundo instala as extensões `http` e
-   `pg_cron`, cria as tabelas e os jobs, importa o CSV do repositório e faz a
-   primeira coleta. Pode rodar de novo sem estragar nada.
+Na VPS, a aplicação `monitor-spkids` do Coolify sobe o Postgres (imagem de
+`hostinger/postgres/`, que cria os papéis e as extensões na primeira subida),
+o PostgREST e o nginx. Depois, no banco:
+
+1. Guardar a chave da PokéWallet (grátis em pokewallet.io):
+   `insert into coleta.segredos values ('pokewallet', '<chave>');`
+   (a tabela é criada por `banco/coleta_precos.sql`; se ainda não existir,
+   `create schema coleta; create table coleta.segredos (nome text primary key, valor text not null);`).
+2. Rodar `banco/noticias.sql`, `banco/cartas_marcadas.sql` e
+   `banco/coleta_precos.sql`, cada um inteiro
+   (`scripts/banco.sh -1 -v ON_ERROR_STOP=1 -f banco/x.sql`). O último
+   instala `http` e `pg_cron`, cria as tabelas e os jobs, importa o CSV do
+   repositório e faz a primeira coleta. Todos podem rodar de novo sem
+   estragar nada.
 
 ### O painel
 
@@ -205,14 +218,14 @@ O `site.yml` só publica no Pages quando `index.html` ou `painel_precos.html` mu
   (24 horas, 7 dias ou todo o período). Só aparece com pelo menos 3 coletas
   cobrindo 2 horas. R² baixo significa que o preço oscila mais do que segue
   uma direção.
-- **Tenho**: fica no Supabase (tabela `cartas_marcadas`), uma lista só e sem
+- **Tenho**: fica no banco (tabela `cartas_marcadas`), uma lista só e sem
   login: quem abre o painel vê as mesmas marcações e pode mexer nelas. O
-  navegador guarda uma cópia; quando o Supabase responde, vale o que está lá.
+  navegador guarda uma cópia; quando o servidor responde, vale o que está lá.
   A tabela só aceita códigos de carta (`30C/001`, `25C-C/015b`...), para não
   virar depósito de outra coisa. **Exportar marcações** baixa uma cópia.
 
-Aberto direto do disco (`file://`), o painel também funciona: ele lê do
-Supabase do mesmo jeito.
+Aberto direto do disco (`file://`), o painel também funciona: ele lê da API
+do mesmo jeito.
 
 ---
 
@@ -231,7 +244,7 @@ encontra por `.claude/agents`.
 
 A cada push, o workflow `CI` confere as mensagens (Conventional Commits),
 procura segredo no histórico (gitleaks) e roda shellcheck e actionlint.
-Para ver o resultado de um push, o deploy do Pages e a saúde do Supabase:
+Para ver o resultado de um push, o deploy no Coolify e a saúde do banco:
 
 ```bash
 scripts/analisar_push.sh          # o último commit da main
@@ -251,4 +264,5 @@ desktop e celular, tema claro e escuro.
 
 | Caminho | Conteúdo |
 |---|---|
-| `~/.config/spkids/supabase-db` | URL do Postgres com senha (para `psql` e `scripts/analisar_push.sh`) |
+| `~/.config/spkids/vps` | acesso ao banco na VPS, para `scripts/banco.sh` e `scripts/analisar_push.sh`: `SPKIDS_SSH_CHAVE` (caminho da chave), `SPKIDS_SSH_PORTA`, `SPKIDS_SSH_DESTINO` (`usuario@host`) e `SPKIDS_PG_CONTAINER` (nome do container do Postgres no Coolify) |
+| `~/repos/hostinger/.env` | acesso à VPS e ao Coolify (`HOSTINGER_*`, `COOLIFY_*`) e as senhas do Postgres deste projeto (`SPKIDS_PG_*`) |

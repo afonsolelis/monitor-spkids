@@ -1,7 +1,7 @@
--- Marcacoes de "tenho" e "encomendei" do painel de precos. Rodar no SQL Editor do
--- Supabase. Uma lista so, sem login: quem abre o painel le e mexe nela. O
--- check limita o que entra a codigos de carta, para ninguem usar a tabela de
--- deposito.
+-- Marcacoes de "tenho" e "encomendei" do painel de precos. Rodar inteiro no
+-- banco (psql -1 -v ON_ERROR_STOP=1 -f). Uma lista so, sem login: quem abre o
+-- painel le e mexe nela. O check limita o que entra a codigos de carta, para
+-- ninguem usar a tabela de deposito.
 
 create table if not exists public.cartas_marcadas (
   carta     text primary key check (carta ~ '^(30C|25C)(-C|-P)?/[0-9A-Za-z]{1,6}$'),

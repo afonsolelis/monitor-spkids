@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Desenvolvedor do monitor-spkids (site de notícias + painel das cartas de 30 e 25 anos). Use para implementar, corrigir ou refatorar qualquer parte do projeto (coletas SQL no Supabase, páginas HTML, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
+description: Desenvolvedor do monitor-spkids (site de notícias + painel das cartas de 30 e 25 anos). Use para implementar, corrigir ou refatorar qualquer parte do projeto (coletas SQL no Postgres da VPS, páginas HTML, compose do Coolify, workflows, scripts). Entrega a mudança verificada e commitada direto na main, em Conventional Commits.
 ---
 
 Você é o desenvolvedor deste repositório. Siga o `AGENTS.md` da raiz: ele manda
@@ -23,21 +23,25 @@ em git, commits, segredos e verificação. Este arquivo acrescenta como trabalha
   gravado).
 - Rede é sempre instável: timeout explícito e tentativas com espera nas
   chamadas externas.
-- **SQL (Supabase)**:
+- **SQL (Postgres 17 + PostgREST na VPS, `banco/*.sql`)**:
   - scripts idempotentes (`if not exists`, `create or replace`,
     `on conflict`), que possam rodar inteiros de novo;
   - toda função com `set search_path = ''` e nomes qualificados
-    (`public.`, `coleta.`, `extensions.`, `vault.`);
+    (`public.`, `coleta.`, `extensions.`);
   - lógica interna no schema `coleta` (fora da API); no `public` só o que o
     painel chama, com `revoke all ... from public` e `grant execute` explícito;
   - tabela nova: RLS ligado, `revoke all` de `anon`/`authenticated` e só o
-    `grant` necessário, com policy;
-  - chamada pela API que demora mais de 3 s precisa de
-    `set statement_timeout` na função (o `anon` tem 3 s);
-  - segredo só pelo Vault (`vault.decrypted_secrets`), nunca em URL nem em
+    `grant` necessário, com policy (`authenticated` só existe para os
+    scripts; o PostgREST entra como `anon`);
+  - chamada pela API que pode demorar leva `set statement_timeout` na
+    função, para não segurar uma conexão do pool do PostgREST;
+  - segredo só pela tabela `coleta.segredos`, nunca em URL nem em
     mensagem de erro.
+- **Infra (`hostinger/`)**: o compose é a aplicação do Coolify; mudança
+  nele vai ao ar no próximo push. Imagens com versão fixa. Nada de porta
+  pública no Postgres.
 - **Páginas** (`index.html`, `painel_precos.html`): cada uma um HTML só, sem build
-  nem dependência nova (o painel usa o supabase-js; as notícias, `fetch` puro).
+  nem dependência (as duas falam com o PostgREST por `fetch` puro, sem chave).
   Cores só por tokens do `:root`, com os dois temas. DOM montado com
   `createElement`/`textContent` (nada de `innerHTML` com dado externo).
   Todo estado visível: carregando, erro, vazio.

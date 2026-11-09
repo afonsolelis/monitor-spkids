@@ -1,40 +1,37 @@
--- Coleta de preco das cartas dentro do Supabase. Substitui o precos_cartas.py
--- no GitHub Actions: a funcao coleta.coletar_precos() le a PokeWallet, grava
--- em public.precos e o pg_cron roda de hora em hora. O painel publicado le
--- tudo por rpc('painel_precos') e o botao chama rpc('atualizar_precos').
+-- Coleta de preco das cartas dentro do proprio Postgres (na VPS da Hostinger,
+-- ver hostinger/docker-compose.yml): a funcao coleta.coletar_precos() le a
+-- PokeWallet, grava em public.precos e o pg_cron roda de hora em hora. O
+-- painel publicado le tudo por rpc('painel_precos') e o botao chama
+-- rpc('atualizar_precos').
 --
--- Rodar inteiro no SQL Editor do Supabase. Pode rodar de novo sem estragar
--- nada. Antes, uma vez so, guardar a chave da PokeWallet no Vault (a mesma do
--- POKEWALLET_KEY em ~/.config/spkids/env):
+-- Rodar inteiro no banco (psql -1 -v ON_ERROR_STOP=1 -f). Pode rodar de novo
+-- sem estragar nada. Antes, uma vez so, guardar a chave da PokeWallet na
+-- tabela de segredos, que fica no schema coleta, fora da API:
 --
---   select vault.create_secret('<chave pk_live...>', 'pokewallet');
+--   insert into coleta.segredos values ('pokewallet', '<chave pk_live...>');
 --
 -- A chave nunca sai do banco: quem chama a PokeWallet e a propria funcao.
 
-do $$
-begin
-  if not exists (select 1 from vault.secrets where name = 'pokewallet') then
-    raise exception 'Falta a chave da PokeWallet no Vault. Rode antes: select vault.create_secret(''<chave>'', ''pokewallet'');';
-  end if;
-end $$;
-
--- O http e sincrono (a funcao le a resposta na hora); o pg_net nao.
+-- O http e sincrono (a funcao le a resposta na hora). O schema extensions e
+-- o mesmo nome que o Supabase usava; as funcoes o qualificam.
+create schema if not exists extensions;
 create extension if not exists http with schema extensions;
 create extension if not exists pg_cron with schema pg_catalog;
 
--- ------------------------------------------------------------- limpeza
--- Versao anterior: o botao disparava o workflow do GitHub com um token no
--- Vault. A assinatura e a mesma, entao a funcao nova (mais abaixo) a
--- substitui; a tabela de disparos e o token nao servem mais.
-drop table if exists public.disparos;
+-- Segredos ficam numa tabela do schema interno (sem Vault fora do Supabase).
+create schema if not exists coleta;
+revoke all on schema coleta from public, anon, authenticated;
+create table if not exists coleta.segredos (
+  nome  text primary key,
+  valor text not null
+);
+
 do $$
 begin
-  delete from vault.secrets where name = 'github_disparo';
-exception when others then
-  raise notice 'apague o segredo github_disparo pelo painel do Vault (%)', sqlerrm;
+  if not exists (select 1 from coleta.segredos where nome = 'pokewallet') then
+    raise exception 'Falta a chave da PokeWallet. Rode antes: insert into coleta.segredos values (''pokewallet'', ''<chave>'');';
+  end if;
 end $$;
--- Tabela da versao com login das marcacoes; vazia desde a troca.
-drop table if exists public.cartas_tenho;
 
 -- -------------------------------------------------------------- tabelas
 -- Catalogo: uma linha por carta, atualizada a cada coleta. O nome em
@@ -391,9 +388,9 @@ begin
     raise exception 'ja tem uma coleta em andamento';
   end if;
 
-  select decrypted_secret into chave from vault.decrypted_secrets where name = 'pokewallet';
+  select valor into chave from coleta.segredos where nome = 'pokewallet';
   if chave is null then
-    raise exception 'chave da PokeWallet nao esta no Vault (segredo pokewallet)';
+    raise exception 'chave da PokeWallet nao esta em coleta.segredos (nome pokewallet)';
   end if;
 
   dolar := coleta.cotacao_dolar();
@@ -416,10 +413,10 @@ begin
 end;
 $$;
 
--- Hora a hora sao ~190 linhas por coleta, ~150 MB por ano, e o plano gratis
--- tem 500 MB. Depois de 30 dias cada carta fica com um ponto por dia (a
--- media), que e o que o painel mostra de qualquer forma para o que passou de
--- 14 dias.
+-- Hora a hora sao ~270 linhas por coleta, uns 200 MB por ano, num disco
+-- dividido com os outros projetos da VPS. Depois de 30 dias cada carta fica
+-- com um ponto por dia (a media), que e o que o painel mostra de qualquer
+-- forma para o que passou de 14 dias.
 create or replace function coleta.compactar_precos()
 returns integer
 language plpgsql
@@ -583,8 +580,8 @@ grant execute on function public.painel_precos() to anon, authenticated;
 
 -- Botao "Atualizar precos agora" do painel. Qualquer um com o painel pode
 -- apertar; a espera minima entre coletas segura o gasto da cota da
--- PokeWallet. O statement_timeout da funcao vale para a chamada pela API (o
--- anon tem 3 s por padrao, e a coleta leva uns 5 a 15).
+-- PokeWallet. O statement_timeout da funcao limita a chamada pela API (a
+-- coleta leva uns 5 a 15 s; mais que isso e a PokeWallet travada).
 create or replace function public.atualizar_precos()
 returns json
 language plpgsql

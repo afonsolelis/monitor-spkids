@@ -1,8 +1,7 @@
 // Regressao visual do painel de precos. Cada teste abre painel_precos.html do
 // disco com a rede toda interceptada:
-//   - Supabase: painel_precos devolve fixtures/painel.json (gravado do banco
+//   - API: painel_precos devolve fixtures/painel.json (gravado do banco
 //     real), marcacoes fixas, escrita respondida sem tocar no banco;
-//   - supabase-js: servido do node_modules em vez do CDN;
 //   - imagens das cartas: um retangulo cinza;
 //   - qualquer outro pedido: abortado.
 // O relogio fica parado para a projecao da tendencia nao mudar a cada dia.
@@ -13,7 +12,6 @@ const { test, expect } = require("@playwright/test");
 const RAIZ = path.resolve(__dirname, "../..");
 const PAINEL = "file://" + path.join(RAIZ, "painel_precos.html");
 const DADOS = fs.readFileSync(path.join(__dirname, "fixtures/painel.json"), "utf8");
-const SUPABASE_JS = fs.readFileSync(require.resolve("@supabase/supabase-js/dist/umd/supabase.js"), "utf8");
 const AGORA = new Date("2026-09-25T10:40:00Z");
 const MARCADAS = ["30C/001", "30C/150", "30C-C/149"];
 const ENCOMENDADAS = ["30C/002", "30C/004"];
@@ -23,11 +21,9 @@ const IMAGEM = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="558"
 async function abrir(page, { painel = "ok" } = {}) {
   await page.clock.setFixedTime(AGORA);
   await page.route("**/*", rota => (rota.request().url().startsWith("file:") ? rota.continue() : rota.abort()));
-  await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", rota =>
-    rota.fulfill({ contentType: "application/javascript", body: SUPABASE_JS }));
   await page.route("https://tcgplayer-cdn.tcgplayer.com/**", rota =>
     rota.fulfill({ contentType: "image/svg+xml", body: IMAGEM }));
-  await page.route("https://*.supabase.co/rest/v1/**", rota => {
+  await page.route("https://spkids-api.afonsolelis.tech/**", rota => {
     const url = rota.request().url();
     const json = (corpo, status = 200) => rota.fulfill({ status, contentType: "application/json", body: corpo });
     if (url.includes("/rpc/painel_precos")) {
@@ -183,7 +179,7 @@ test("botao com coleta recente", async ({ page }) => {
   await expect(page.locator(".topo")).toHaveScreenshot("botao-espera.png");
 });
 
-test("supabase fora do ar", async ({ page }) => {
+test("api fora do ar", async ({ page }) => {
   await abrir(page, { painel: "erro" });
   await expect(page.locator("#sub")).toContainText("Não consegui ler os preços");
   await expect(page).toHaveScreenshot("erro.png");

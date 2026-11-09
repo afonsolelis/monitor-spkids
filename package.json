@@ -8,7 +8,6 @@
     "test:visual:relatorio": "playwright show-report tests/visual/relatorio"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.0",
-    "@supabase/supabase-js": "2.57.4"
+    "@playwright/test": "1.55.0"
   }
 }

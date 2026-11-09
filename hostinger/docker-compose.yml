@@ -1,0 +1,71 @@
+# O site inteiro na VPS da Hostinger, como aplicacao docker-compose do Coolify
+# (projeto monitor-spkids, construida deste repositorio a cada push na main):
+#
+#   postgres   Postgres 17 com pg_cron e http (hostinger/postgres/Dockerfile).
+#              As duas coletas rodam aqui dentro (banco/*.sql).
+#   postgrest  A API que as paginas leem: https://spkids-api.afonsolelis.tech.
+#              So o schema public e o papel anon; as tabelas sao so leitura e
+#              as funcoes internas ficam no schema coleta, fora da API.
+#   site       nginx com index.html e painel_precos.html (como precos.html):
+#              https://spkids.afonsolelis.tech.
+#
+# Postgres sem porta publica: manutencao por SSH na VPS, com
+# docker exec -i <container> psql -U postgres -d spkids. Dados em
+# /data/monitor-spkids/pgdata. As senhas sao variaveis da aplicacao no
+# Coolify (copia em ~/repos/hostinger/.env, SPKIDS_PG_*).
+services:
+  postgres:
+    build: ./postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: spkids
+      AUTHENTICATOR_PASSWORD: ${AUTHENTICATOR_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron
+      - -c
+      - cron.database_name=spkids
+      - -c
+      - max_connections=30
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - password_encryption=scram-sha-256
+    volumes:
+      - '/data/monitor-spkids/pgdata:/var/lib/postgresql/data'
+    mem_limit: 384m
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d spkids']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgrest:
+    image: 'postgrest/postgrest:v14.6'
+    environment:
+      PGRST_DB_URI: 'postgres://authenticator:${AUTHENTICATOR_PASSWORD}@postgres:5432/spkids'
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_POOL: '6'
+      PGRST_DB_MAX_ROWS: '5000'
+      PGRST_SERVER_PORT: '3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 64m
+    restart: unless-stopped
+
+  site:
+    build:
+      context: ..
+      dockerfile: hostinger/site/Dockerfile
+    mem_limit: 32m
+    restart: unless-stopped

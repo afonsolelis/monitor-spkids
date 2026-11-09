@@ -1,14 +1,14 @@
-# Publica o site no GitHub Pages: index.html (noticias) na raiz e o painel de
-# precos das cartas como precos.html. As duas paginas sao so a casca: os dados
-# vem do Supabase quando alguem abre, e as coletas rodam no pg_cron do proprio
-# Supabase (supabase/noticias.sql e supabase/coleta_precos.sql).
+# O site saiu do GitHub Pages: mora na VPS da Hostinger (hostinger/), e o
+# Coolify reconstroi as duas paginas a cada push na main, por webhook do
+# GitHub. Aqui so fica um redirecionamento no endereco antigo, para link
+# salvo continuar funcionando. Roda quando este arquivo muda ou a mao.
 name: Site
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [index.html, painel_precos.html, .github/workflows/site.yml]
+    paths: [.github/workflows/site.yml]
 
 concurrency:
   group: site
@@ -19,19 +19,38 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  NOVO: https://spkids.afonsolelis.tech
+
 jobs:
-  publicar:
+  redirecionar:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - run: mkdir site && cp index.html site/ && cp painel_precos.html site/precos.html
+      - name: Páginas de redirecionamento
+        run: |
+          set -euo pipefail
+          mkdir site
+          for par in "index.html:/" "precos.html:/precos.html"; do
+            destino="${NOVO}${par#*:}"
+            cat > "site/${par%%:*}" <<HTML
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+          <meta charset="utf-8">
+          <meta http-equiv="refresh" content="0; url=${destino}">
+          <link rel="canonical" href="${destino}">
+          <title>Mudou de endereço</title>
+          </head>
+          <body>
+          <p>O site mudou para <a href="${destino}">${destino}</a>.</p>
+          </body>
+          </html>
+          HTML
+          done
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
