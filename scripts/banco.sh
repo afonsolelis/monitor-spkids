@@ -26,8 +26,9 @@ while [ $# -gt 0 ]; do
   fi
 done
 
-# Os argumentos vao citados para o shell remoto nao os quebrar.
-remoto="docker exec -i $SPKIDS_PG_CONTAINER psql -U postgres -d spkids -X"
+# O Coolify poe um sufixo no nome do container; acha pelo prefixo. Os
+# argumentos vao citados para o shell remoto nao os quebrar.
+remoto="docker exec -i \$(docker ps -qf name=^$SPKIDS_PG_CONTAINER) psql -U postgres -d spkids -X"
 for a in "${args[@]}"; do remoto+=" $(printf '%q' "$a")"; done
 
 if [ -n "$entrada" ]; then

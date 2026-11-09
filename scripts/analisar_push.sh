@@ -93,7 +93,7 @@ else
   source "$VPS"
   sql() {
     ssh -o BatchMode=yes -o ConnectTimeout=20 -i "$SPKIDS_SSH_CHAVE" -p "$SPKIDS_SSH_PORTA" "$SPKIDS_SSH_DESTINO" \
-      "docker exec -i $SPKIDS_PG_CONTAINER psql -U postgres -d spkids -X -At -v ON_ERROR_STOP=1" <<<"$1" 2>&1
+      "docker exec -i \$(docker ps -qf name=^$SPKIDS_PG_CONTAINER) psql -U postgres -d spkids -X -At -v ON_ERROR_STOP=1" <<<"$1" 2>&1
   }
   idade="$(sql "select coalesce(round(extract(epoch from now() - max(momento)) / 60), -1) from public.coletas where origem <> 'importado'")"
   if [[ ! "$idade" =~ ^-?[0-9]+$ ]]; then
