@@ -57,6 +57,9 @@ services:
       PGRST_DB_POOL: '6'
       PGRST_DB_MAX_ROWS: '5000'
       PGRST_SERVER_PORT: '3000'
+    # A porta que o Coolify liga ao dominio (docker_compose_domains).
+    expose:
+      - '3000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,5 +70,7 @@ services:
     build:
       context: ..
       dockerfile: hostinger/site/Dockerfile
+    expose:
+      - '80'
     mem_limit: 32m
     restart: unless-stopped
