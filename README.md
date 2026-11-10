@@ -128,10 +128,16 @@ os sets e as buscas que as cobrem ficam nas views `coleta.edicoes` e
 |---|---|---|---|
 | Celebração de 30 Anos | `30C` | `24722` | 161 |
 | Cartas Clássicas (Classic Collection) | `30C-C` | `24837` | 30 |
-| Promos de 30 Anos (com o selo) | `30C-P` | `24451` | 18 |
+| Promos de 30 Anos (com o selo) e as de loja dos EUA ("What's Your Favorite?") | `30C-P` | `24451`, `2374` | 18 + 7 |
 | Celebração de 25 Anos (Celebrations) | `25C` | `2867` | 25 |
 | Clássicas de 25 Anos (Classic Collection) | `25C-C` | `2931` | 25 |
 | Promos de 25 Anos (lista da PokéBeach) e as duas de metal | `25C-P` | `2545`, `2374` | 18 |
+
+As sete promos de loja dos EUA com o selo dos 30 anos (Armarouge, Primarina
+e Zarude de Pitch Black; Mewtwo 063/128; Kyogre, Groudon e Giratina de Delta
+Reign) moram na miscelânea com "(What's Your Favorite Stamp)" no nome, como
+no TCGplayer; entram na `30C-P` conforme a PokéWallet as cadastra (em
+10/11/2026 ainda não tinha nenhuma).
 
 Os promos de 25 anos não têm "Celebrations" no nome na PokéWallet, por isso a
 busca vai pelo prefixo do número (`SWSH13`, `SWSH14`, `SWSH062`) e só entram os

@@ -110,11 +110,15 @@ $$;
 -- As edicoes acompanhadas, com o set da PokeWallet de onde vem cada uma e a
 -- ordem em que o painel as mostra. As promos de 25 anos moram no set de
 -- promos de Sword & Shield (so os numeros listados entram) e as duas de
--- metal, no set de miscelanea.
+-- metal, no set de miscelanea. As promos de loja dos EUA com o selo dos 30
+-- anos ("What's Your Favorite?": Armarouge, Primarina, Zarude, Mewtwo,
+-- Kyogre, Groudon e Giratina) tambem ficam na miscelanea, com "(What's Your
+-- Favorite Stamp)" no nome, como o TCGplayer as lista.
 create or replace view coleta.edicoes (ordem, sigla, set_id, nome) as
   values (1, '30C',   '24722', 'Celebração de 30 Anos'),
          (2, '30C-C', '24837', 'Cartas Clássicas'),
          (3, '30C-P', '24451', 'Promos de 30 Anos'),
+         (3, '30C-P', '2374',  'Promos de 30 Anos'),
          (4, '25C',   '2867',  'Celebração de 25 Anos'),
          (5, '25C-C', '2931',  'Clássicas de 25 Anos'),
          (6, '25C-P', '2545',  'Promos de 25 Anos'),
@@ -122,10 +126,11 @@ create or replace view coleta.edicoes (ordem, sigla, set_id, nome) as
 
 -- As buscas que, juntas, cobrem todas as edicoes: a busca vem com preco e a
 -- listagem do set nao. Os promos de 25 anos nao tem "Celebrations" no nome,
--- entao vao pelo prefixo do numero.
+-- entao vao pelo prefixo do numero. "Favorite Stamp" e para as promos de
+-- loja dos EUA (sem o apostrofo, que a busca nao precisa).
 create or replace view coleta.buscas (termo) as
   values ('30th Celebration'), ('Celebrations'), ('Celebrations Metal'),
-         ('SWSH062'), ('SWSH13'), ('SWSH14');
+         ('Favorite Stamp'), ('SWSH062'), ('SWSH13'), ('SWSH14');
 
 -- Os promos de 25 anos: o que veio nas colecoes, latas, caixas e no
 -- Ultra-Premium (lista da PokeBeach), sem os jumbos.
@@ -256,9 +261,11 @@ as $$
      where r -> 'card_info' ->> 'product_type' = 'card'
        -- sem numero e o "Code Card" do booster, nao e carta
        and coalesce(r -> 'card_info' ->> 'card_number', '') <> ''
-       -- a edicao de promos e a da Mega Evolution inteira; so as com o selo
-       -- dos 30 anos entram
-       and (e.sigla <> '30C-P' or r -> 'card_info' ->> 'name' like '%(30th Celebration)%')
+       -- a edicao de promos e a da Mega Evolution inteira e a miscelanea tem
+       -- de tudo; so as com o selo dos 30 anos entram
+       and (e.sigla <> '30C-P'
+            or r -> 'card_info' ->> 'name' like '%(30th Celebration)%'
+            or r -> 'card_info' ->> 'name' like '%(What''s Your Favorite Stamp)%')
        -- o set Celebrations traz uma Ponyta 014/083 perdida
        and (e.sigla <> '25C' or r -> 'card_info' ->> 'card_number' like '%/025')
        -- promos de 25 anos: so os da lista, e as duas cartas de metal
