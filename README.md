@@ -136,8 +136,10 @@ os sets e as buscas que as cobrem ficam nas views `coleta.edicoes` e
 As sete promos de loja dos EUA com o selo dos 30 anos (Armarouge, Primarina
 e Zarude de Pitch Black; Mewtwo 063/128; Kyogre, Groudon e Giratina de Delta
 Reign) moram na miscelânea com "(What's Your Favorite Stamp)" no nome, como
-no TCGplayer; entram na `30C-P` conforme a PokéWallet as cadastra (em
-10/11/2026 ainda não tinha nenhuma).
+no TCGplayer. Enquanto a PokéWallet não as cadastra (em 10/11/2026 não
+tinha nenhuma), elas entram no catálogo pela view `coleta.cartas_a_mao`, sem
+preço ("sem oferta"), só para marcar; quando a busca passar a devolvê-las, o
+preço aparece sozinho.
 
 Os promos de 25 anos não têm "Celebrations" no nome na PokéWallet, por isso a
 busca vai pelo prefixo do número (`SWSH13`, `SWSH14`, `SWSH062`) e só entram os

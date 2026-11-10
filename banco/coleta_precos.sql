@@ -145,6 +145,28 @@ create or replace view coleta.promos_25 (numero) as
 create or replace view coleta.fora_da_colecao (colecao, numero) as
   values ('30C', 'R'), ('30C', 'G'), ('30C', 'B');
 
+-- Cartas que a PokeWallet ainda nao cadastrou mas o usuario ja quer ver no
+-- painel: entram sem preco ("sem oferta") para poder marcar como tenho ou
+-- encomendada. Quando a PokeWallet as devolver na busca, a coleta grava por
+-- cima nome, imagem e endereco e o preco comeca a aparecer. As quatro que o
+-- TCGplayer ja vende apontam para o produto; as de Delta Reign, que nem o
+-- TCGplayer tem, levam a imagem da carta comum e um link de busca.
+create or replace view coleta.cartas_a_mao (colecao, numero, nome_en, imagem, url) as
+  values ('30C-P', '012', 'Armarouge (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/705528_400w.jpg', 'https://www.tcgplayer.com/product/705528'),
+         ('30C-P', '020', 'Primarina (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/705526_400w.jpg', 'https://www.tcgplayer.com/product/705526'),
+         ('30C-P', '056', 'Zarude (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/705527_400w.jpg', 'https://www.tcgplayer.com/product/705527'),
+         ('30C-P', '063', 'Mewtwo (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/717729_400w.jpg', 'https://www.tcgplayer.com/product/717729'),
+         ('30C-P', '026', 'Kyogre (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/726519_400w.jpg', 'https://www.tcgplayer.com/search/pokemon/product?q=kyogre+what%27s+your+favorite'),
+         ('30C-P', '045', 'Giratina (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/726527_400w.jpg', 'https://www.tcgplayer.com/search/pokemon/product?q=giratina+what%27s+your+favorite'),
+         ('30C-P', '053', 'Groudon (What''s Your Favorite Stamp)',
+          'https://tcgplayer-cdn.tcgplayer.com/product/726529_400w.jpg', 'https://www.tcgplayer.com/search/pokemon/product?q=groudon+what%27s+your+favorite');
+
 -- '58/102' -> '058': o historico guarda o numero com tres digitos. A Classic
 -- Collection reimprime cartas com o numero original e tres pares se repetem;
 -- a Liga separava com letra, e o numero completo resolve.
@@ -346,6 +368,12 @@ begin
   on conflict (colecao, numero) do update
     set nome_en = excluded.nome_en, imagem = excluded.imagem,
         url = excluded.url, visto_em = excluded.visto_em;
+
+  -- As colocadas a mao a busca nao traz; sem isto o painel (que so mostra o
+  -- visto no ultimo dia) as esconderia.
+  insert into public.cartas (colecao, numero, nome_en, imagem, url, visto_em)
+  select m.colecao, m.numero, m.nome_en, m.imagem, m.url, momento from coleta.cartas_a_mao m
+  on conflict (colecao, numero) do update set visto_em = excluded.visto_em;
 
   -- A PokeWallet so tem nome em ingles; a promo herda o nome em portugues da
   -- mesma carta nas outras edicoes, que veio da Liga.
@@ -628,6 +656,9 @@ select cron.schedule('limpa-cron', '43 6 * * *',
 
 -- ------------------------------------------------------ primeira carga
 select coleta.importar_csv('https://raw.githubusercontent.com/afonsolelis/monitor-spkids/main/dados/precos-cartas.csv') as linhas_importadas;
+insert into public.cartas (colecao, numero, nome_en, imagem, url, visto_em)
+select colecao, numero, nome_en, imagem, url, now() from coleta.cartas_a_mao
+on conflict (colecao, numero) do nothing;
 select coleta.coletar_precos('manual') as primeira_coleta;
 
 -- O CSV antigo traz de volta as cartas de fora; elas saem do catalogo e do
