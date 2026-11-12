@@ -59,6 +59,8 @@ services:
       PGRST_DB_POOL: '6'
       PGRST_DB_MAX_ROWS: '5000'
       PGRST_SERVER_PORT: '3000'
+      PGRST_ADMIN_SERVER_PORT: '3001'
+      PGRST_ADMIN_SERVER_HOST: 127.0.0.1
     # A porta que o Coolify liga ao dominio (docker_compose_domains).
     expose:
       - '3000'
@@ -67,6 +69,14 @@ services:
         condition: service_healthy
     mem_limit: 64m
     restart: unless-stopped
+    # /ready do admin server (só no loopback): 200 se a API e o banco estão de pé
+    healthcheck:
+      test: ['CMD', 'postgrest', '--ready']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
 
   site:
     build:
@@ -76,3 +86,10 @@ services:
       - '80'
     mem_limit: 32m
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '/dev/null', 'http://127.0.0.1/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
