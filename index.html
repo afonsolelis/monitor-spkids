@@ -138,6 +138,10 @@ input[type="search"] {
 .fixa h2 { line-height: 20px; }
 .fixa .meta { line-height: 18px; margin-top: 8px; }
 .fixa .meta .tema { color: var(--mega); font-weight: 600; }
+.proximo { color: var(--ink-2); line-height: 20px; margin: 8px 0 0; overflow-wrap: anywhere; }
+.proximo strong { color: var(--ink); font-weight: 600; }
+.proximo .valor { color: var(--mega); font-weight: 650; white-space: nowrap; }
+.proximo .quando { white-space: nowrap; }
 .dezenas { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
 .dezenas span {
   display: inline-flex; align-items: center; justify-content: center;
@@ -370,6 +374,11 @@ function item(n) {
 // Mega-Sena: a API do Resultado Mega (resultadomega.com.br/api) e publica,
 // sem chave e com CORS, entao a pagina le direto; a API do site nao entra.
 const MEGA_URL = "https://resultadomega.com.br/api/ultimo.json";
+const PROXIMO_URL = "https://resultadomega.com.br/api/proximo.json";
+// O proximo.json traz a data mas nao a hora; a Caixa sorteia pelo calendario
+// fixo (domingo 11h, terca e quinta 21h, horario de Brasilia). Dia fora dele
+// (concurso especial) fica sem hora em vez de uma hora inventada.
+const HORA_SORTEIO = { 0: "11h", 2: "21h", 4: "21h" };
 const fmtReal = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const fmtMilhoes = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
@@ -396,7 +405,7 @@ function cartaoMega(m) {
       ? `uma aposta leva ${dinheiro(sena.rateio)}`
       : `${sena.ganhadores} apostas levam ${dinheiro(sena.rateio)} cada`;
   } else {
-    manchete = `acumulou, próximo prêmio estimado em ${dinheiro(m.estimativaProximo)}`;
+    manchete = m.acumuladoProximo > 0 ? `acumulou em ${dinheiro(m.acumuladoProximo)}` : "acumulou";
   }
   a.textContent = `Mega-Sena ${m.concurso}: ${manchete}`;
   h.append(a);
@@ -419,18 +428,58 @@ function cartaoMega(m) {
   const [ano, mes, dia] = m.data.split("-").map(Number);
   meta.append("Resultado Mega · ", tema, " · sorteio de " + fmtDia.format(new Date(ano, mes - 1, dia)).replace(/ /g, "\u00a0"));
 
-  texto.append(h, dezenas, meta);
+  texto.append(h, dezenas, linhaProximo(m.proximo), meta);
   art.append(texto);
   return art;
 }
 
-async function carregarMega() {
-  const resp = await fetch(MEGA_URL, { signal: AbortSignal.timeout(8000) });
+// "Próximo sorteio: concurso 3086 · domingo, 15 de novembro às 11h · prêmio
+// estimado em R$ 27 milhões". Sem a data (proximo.json fora), so concurso e valor.
+function linhaProximo(p) {
+  const linha = document.createElement("p");
+  linha.className = "proximo";
+  const rotulo = document.createElement("strong");
+  rotulo.textContent = "Próximo sorteio:";
+  linha.append(rotulo, ` concurso ${p.concurso}`);
+  if (p.data) {
+    const [ano, mes, dia] = p.data.split("-").map(Number);
+    const d = new Date(ano, mes - 1, dia);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - hoje) / 86400000);
+    // "terça" em vez de "terça-feira": inteiro e sem quebrar no hifen, o
+    // trecho cabe numa linha mesmo a 320 px.
+    const quando = document.createElement("span");
+    quando.className = "quando";
+    quando.textContent = (diff === 0 ? "hoje" : diff === 1 ? "amanhã" : fmtDia.format(d).replace("-feira", ""))
+      + (HORA_SORTEIO[d.getDay()] ? " às " + HORA_SORTEIO[d.getDay()] : "");
+    linha.append(" · ", quando);
+  }
+  if (p.estimativa > 0) {
+    const valor = document.createElement("span");
+    valor.className = "valor";
+    valor.textContent = dinheiro(p.estimativa);
+    linha.append(" · prêmio estimado em ", valor);
+  }
+  return linha;
+}
+
+async function lerJson(url) {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!resp.ok) throw new Error("HTTP " + resp.status);
-  const m = await resp.json();
+  return resp.json();
+}
+
+async function carregarMega() {
+  // Os dois em paralelo; sem o proximo.json o cartao sai igual, so sem a data.
+  const [m, p] = await Promise.all([lerJson(MEGA_URL), lerJson(PROXIMO_URL).catch(() => null)]);
   if (!Array.isArray(m.dezenas) || m.dezenas.length !== 6 || !m.concurso || !m.data) {
     throw new Error("resposta inesperada");
   }
+  // So vale o proximo.json do concurso seguinte: num cache desencontrado
+  // ele poderia ainda apontar para o sorteio que acabou de sair.
+  m.proximo = p && p.concurso === m.concurso + 1 && /^\d{4}-\d\d-\d\d$/.test(p.data)
+    ? { concurso: p.concurso, data: p.data, estimativa: p.estimativa }
+    : { concurso: m.concurso + 1, data: null, estimativa: m.estimativaProximo };
   return m;
 }
 

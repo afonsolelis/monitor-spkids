@@ -69,10 +69,14 @@ vem sem data e com acento quebrado.
 ### Mega-Sena
 
 No topo da lista, antes do primeiro dia e com qualquer filtro, fica fixo o
-último resultado da Mega-Sena: concurso, dezenas e se acumulou (com o prêmio
-estimado do próximo) ou quantas apostas acertaram a sena. A página lê direto
-`https://resultadomega.com.br/api/ultimo.json` (API pública, sem chave, com
-CORS); a API do site não participa. Se ela falhar, o cartão só não aparece.
+último resultado da Mega-Sena: concurso, dezenas e quanto acumulou (ou quantas
+apostas acertaram a sena e quanto cada uma leva). Embaixo, o próximo sorteio:
+concurso, dia e hora e o prêmio estimado. A página lê direto
+`https://resultadomega.com.br/api/ultimo.json` e `/api/proximo.json` (API
+pública, sem chave, com CORS); a API do site não participa. O `proximo.json`
+não traz a hora, que sai do calendário fixo da Caixa (domingo 11h, terça e
+quinta 21h); num dia fora dele o cartão mostra só a data. Se o `ultimo.json`
+falhar, o cartão não aparece; se só o `proximo.json` falhar, sai sem a data.
 
 A mesma notícia em dois feeds entra uma vez, com o tema do primeiro que a
 trouxe. Por isso a coleta lê Pokémon TCG, Pokémon e Nintendo antes dos temas
