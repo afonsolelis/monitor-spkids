@@ -331,8 +331,9 @@ function esquecerObs(k) {
 // ------------------------------------------------------------------ api
 // Os precos vem da API do site (PostgREST na VPS, banco/coleta_precos.sql), e
 // as marcacoes ficam nas tabelas cartas_marcadas e cartas_encomendadas
-// (banco/cartas_marcadas.sql), uma lista so de cada, sem login nem chave: o
-// visitante so le os precos e mexe nas marcacoes. O localStorage vira copia
+// (banco/cartas_marcadas.sql), uma lista so de cada, sem login: qualquer um
+// le; para mexer, as funcoes mudar_cartas e anotar_encomenda pedem o PIN, que
+// o painel pergunta na primeira marcacao e guarda. O localStorage vira copia
 // das marcacoes: quando o servidor responde, e ele que vale.
 const API_URL = "https://spkids-api.afonsolelis.tech";
 
@@ -351,20 +352,34 @@ async function api(caminho, { method = "GET", body, headers = {} } = {}) {
   return dados;
 }
 
-// 30C/001 -> "30C/001": na lista do filtro in.(...) o valor vai entre aspas.
-const listaIn = ks => "in.(" + ks.map(k => JSON.stringify(k)).join(",") + ")";
-
 function avisarNuvem(texto) { document.getElementById("estado").textContent = texto; }
+
+// O PIN e perguntado uma vez e fica neste navegador. Se o servidor disser que
+// esta errado, ele sai e a proxima marcacao pergunta de novo.
+const CHAVE_PIN = "pokemon30:pin";
+function pinGuardado() {
+  try { return localStorage.getItem(CHAVE_PIN); } catch { return null; }
+}
+async function escrever(funcao, corpo) {
+  let pin = pinGuardado();
+  if (!pin) {
+    pin = (prompt("PIN para mexer nas marcações") || "").trim();
+    if (!pin) throw new Error("sem PIN");
+    try { localStorage.setItem(CHAVE_PIN, pin); } catch { /* vale so nesta chamada */ }
+  }
+  try {
+    return await api(`/rpc/${funcao}`, { method: "POST", body: { pin, ...corpo } });
+  } catch (e) {
+    if (e.message === "PIN errado") { try { localStorage.removeItem(CHAVE_PIN); } catch { /* nada */ } }
+    throw e;
+  }
+}
 
 async function marcarNaNuvem(ks, tem, nome = "cartas_marcadas") {
   if (!ks.length) return;
+  const lista = nome === "cartas_encomendadas" ? "encomendei" : "tenho";
   try {
-    if (tem) {
-      await api(`/${nome}`, { method: "POST", body: ks.map(carta => ({ carta })),
-                              headers: { Prefer: "resolution=ignore-duplicates" } });
-    } else {
-      await api(`/${nome}?carta=${encodeURIComponent(listaIn(ks))}`, { method: "DELETE" });
-    }
+    await escrever("mudar_cartas", { lista, cartas: ks, tem });
   } catch (e) {
     avisarNuvem(`Não salvou no servidor: ${e.message}`);
   }
@@ -386,7 +401,7 @@ async function puxarDaNuvem() {
 
 async function anotarNaNuvem(k, obs) {
   try {
-    await api(`/cartas_encomendadas?carta=eq.${encodeURIComponent(k)}`, { method: "PATCH", body: { obs: obs || null } });
+    await escrever("anotar_encomenda", { carta: k, obs: obs || null });
   } catch (e) {
     avisarNuvem(`Não salvou a observação no servidor: ${e.message}`);
   }

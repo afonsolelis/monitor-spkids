@@ -84,7 +84,10 @@ O repositório é **público**. Nunca vão para o git nem para a saída de coman
 - O banco não tem porta pública. Consulta é por SSH na VPS e `docker exec`
   no container do Postgres; os dados de acesso ficam em `~/.config/spkids/vps`
   (ver README). Nunca imprima esses arquivos.
-- A API é pública e sem chave: o visitante só lê e mexe nas marcações.
+- A API é pública e sem chave para ler. As marcações só mudam pelas funções
+  `mudar_cartas` e `anotar_encomenda`, com o PIN das cartas: ele fica só no
+  banco, como hash bcrypt em `coleta.segredos` (`pin_cartas`). Nem o PIN nem
+  o hash vão para o git (PIN de 6 dígitos sai do hash em segundos).
 
 ## Antes de commitar
 

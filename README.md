@@ -227,7 +227,9 @@ o PostgREST e o nginx. Depois, no banco:
   cobrindo 2 horas. R² baixo significa que o preço oscila mais do que segue
   uma direção.
 - **Tenho**: fica no banco (tabela `cartas_marcadas`), uma lista só e sem
-  login: quem abre o painel vê as mesmas marcações e pode mexer nelas. O
+  login: quem abre o painel vê as mesmas marcações; para mexer, o painel
+  pede um PIN na primeira vez e guarda no navegador (dez PINs errados numa
+  hora travam a escrita por uma hora). O
   navegador guarda uma cópia; quando o servidor responde, vale o que está lá.
   A tabela só aceita códigos de carta (`30C/001`, `25C-C/015b`...), para não
   virar depósito de outra coisa. **Exportar marcações** baixa uma cópia.

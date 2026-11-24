@@ -32,6 +32,10 @@ async function abrir(page, { painel = "ok" } = {}) {
     if (url.includes("/rpc/atualizar_precos")) {
       return json(JSON.stringify({ ok: false, liberado_em: "2026-09-25T10:45:00+00:00" }));
     }
+    // Marcacoes gravam pelas funcoes com PIN; respondidas sem tocar no banco.
+    if (url.includes("/rpc/mudar_cartas") || url.includes("/rpc/anotar_encomenda")) {
+      return json(JSON.stringify({ ok: true }));
+    }
     for (const [tabela, lista] of [["/cartas_marcadas", MARCADAS], ["/cartas_encomendadas", ENCOMENDADAS]]) {
       if (!url.includes(tabela)) continue;
       if (rota.request().method() === "GET") return json(JSON.stringify(lista.map(carta => ({ carta, obs: OBS[carta] }))));
@@ -39,6 +43,8 @@ async function abrir(page, { painel = "ok" } = {}) {
     }
     return json(JSON.stringify({ message: "rota nao simulada" }), 404);
   });
+  // PIN ja guardado: as marcacoes dos testes nao param no prompt.
+  await page.addInitScript(() => localStorage.setItem("pokemon30:pin", "000000"));
   await page.goto(PAINEL);
   if (painel === "ok") {
     await expect(page.locator("#sub")).toContainText("atualizado em");
